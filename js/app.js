@@ -31,6 +31,7 @@ const NAV = [
   { href: "horario.html", label: "Horário" },
   { href: "alunos.html", label: "Alunos" },
   { href: "professores.html", label: "Professores" },
+  { href: "salas.html", label: "Salas" },
 ];
 
 /** Garante sessão iniciada; se não houver, volta ao login. Devolve o utilizador. */
@@ -136,6 +137,7 @@ export function fillForm(form, obj = {}) {
     if (el.type === "checkbox") el.checked = v ?? el.defaultChecked;
     else if (el.type === "radio") el.checked = v != null ? el.value === v : el.defaultChecked;
     else if (el.type === "time") el.value = v ? hhmm(v) : "";
+    else if (el.type === "date") el.value = v ? String(v).slice(0, 10) : "";
     else el.value = v ?? "";
   }
 }

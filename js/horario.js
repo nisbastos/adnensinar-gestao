@@ -23,6 +23,8 @@ wireModal(modal);
 
 let aulas = [];       // horario + alunos
 let profs = [];
+let salas = [];
+let vista = "semana"; // "semana" | "salas"
 let alunos = [];
 let editId = null;
 let diaAtivo = Math.min(Math.max(new Date().getDay(), 1), 5);
@@ -32,16 +34,29 @@ $("f-dia").innerHTML = DIAS.slice(1).map((d, i) => `<option value="${i + 1}">${d
 // ---------- Dados ----------
 
 async function carregar() {
-  const [r1, r2, r3] = await Promise.all([
+  const [r1, r2, r3, r4] = await Promise.all([
     sb.from("horario").select("*, horario_alunos(aluno_id)").order("hora_inicio"),
     sb.from("professores").select("*").order("nome"),
     sb.from("alunos").select("id, nome, ano_escolar, ativo").order("nome"),
+    sb.from("salas").select("*").order("ordem").order("nome"),
   ]);
-  if (failed(r1.error, "Erro a carregar horário") || failed(r2.error, "Erro a carregar professores") || failed(r3.error, "Erro a carregar alunos")) return;
+  if (failed(r1.error, "Erro a carregar horário") || failed(r2.error, "Erro a carregar professores") || failed(r3.error, "Erro a carregar alunos") || failed(r4.error, "Erro a carregar salas")) return;
 
   aulas = r1.data.map((a) => ({ ...a, alunos: a.horario_alunos.map((x) => x.aluno_id) }));
   profs = r2.data;
   alunos = r3.data;
+  salas = r4.data;
+
+  const salaAtual = $("filter-sala").value;
+  $("filter-sala").innerHTML =
+    `<option value="">Todas as salas</option>` +
+    salas.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("") +
+    `<option value="__none">Sem sala</option>`;
+  $("filter-sala").value = salaAtual;
+
+  $("f-sala").innerHTML =
+    `<option value="">—</option>` +
+    salas.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
 
   const filtroAtual = $("filter-prof").value;
   $("filter-prof").innerHTML =
@@ -64,6 +79,7 @@ async function carregar() {
 
 const profPorId = (id) => profs.find((p) => p.id === id);
 const alunoPorId = (id) => alunos.find((a) => a.id === id);
+const salaPorId = (id) => salas.find((x) => x.id === id);
 
 // ---------- Grelha ----------
 
@@ -96,25 +112,45 @@ function emFaixas(lista) {
 
 function filtradas() {
   const prof = $("filter-prof").value;
+  const sala = $("filter-sala").value;
   const q = norm($("filter-aluno").value);
   return aulas.filter((a) => {
     if (prof === "__none" && a.professor_id) return false;
     if (prof && prof !== "__none" && a.professor_id !== prof) return false;
+    if (sala === "__none" && a.sala_id) return false;
+    if (sala && sala !== "__none" && a.sala_id !== sala) return false;
     if (q && !a.alunos.some((id) => norm(alunoPorId(id)?.nome).includes(q))) return false;
     return true;
   });
 }
 
+/** Colunas da grelha: dias da semana, ou salas do dia escolhido. */
+function colunas(visiveis) {
+  if (vista === "semana") {
+    return DIAS_VISIVEIS.map((d) => ({ key: String(d), label: DIAS[d], dia: d, aulas: visiveis.filter((a) => a.dia_semana === d) }));
+  }
+  const doDia = visiveis.filter((a) => a.dia_semana === diaAtivo);
+  const filtroSala = $("filter-sala").value;
+  const cols = salas
+    .filter((x) => (x.ativo || doDia.some((a) => a.sala_id === x.id)) && (!filtroSala || filtroSala === x.id))
+    .map((x) => ({ key: x.id, label: x.nome, dia: diaAtivo, sala_id: x.id, aulas: doDia.filter((a) => a.sala_id === x.id) }));
+  const semSala = doDia.filter((a) => !a.sala_id || !salaPorId(a.sala_id));
+  if (semSala.length || filtroSala === "__none") cols.push({ key: "__none", label: "Sem sala", dia: diaAtivo, sala_id: null, aulas: semSala });
+  return cols;
+}
+
 function render() {
-  const visiveis = filtradas();
   const el = $("schedule");
-  el.style.setProperty("--days", DIAS_VISIVEIS.length);
+  const cols = colunas(filtradas());
+  const salasVista = vista === "salas";
+  el.classList.toggle("schedule--rooms", salasVista);
+  el.style.setProperty("--days", Math.max(cols.length, 1));
   el.style.setProperty("--slot-h", SLOT_PX + "px");
   const altura = yDe(FIM);
 
   let html = `<div class="schedule__corner"></div>`;
-  html += DIAS_VISIVEIS.map(
-    (d) => `<div class="schedule__dayhead ${d === diaAtivo ? "is-active" : ""}" data-day="${d}">${DIAS[d]}</div>`
+  html += cols.map(
+    (c) => `<div class="schedule__dayhead ${!salasVista && c.dia === diaAtivo ? "is-active" : ""}" data-day="${c.dia}">${esc(c.label)}</div>`
   ).join("");
 
   // Coluna das horas
@@ -124,35 +160,38 @@ function render() {
   }
   html += `</div>`;
 
-  // Colunas dos dias
-  for (const d of DIAS_VISIVEIS) {
-    html += `<div class="schedule__col ${d === diaAtivo ? "is-active" : ""}" data-day="${d}" style="height:${altura}px">`;
+  for (const c of cols) {
+    html += `<div class="schedule__col ${!salasVista && c.dia === diaAtivo ? "is-active" : ""}" data-day="${c.dia}" data-sala="${c.sala_id ?? ""}" style="height:${altura}px">`;
     for (const [dia, ini, fim] of FECHADO) {
-      if (dia !== 0 && dia !== d) continue;
+      if (dia !== 0 && dia !== c.dia) continue;
       html += `<div class="schedule__closed" style="top:${yDe(toMin(ini))}px;height:${yDe(toMin(fim)) - yDe(toMin(ini))}px"></div>`;
     }
-    for (const { aula: a, faixa, total } of emFaixas(visiveis.filter((x) => x.dia_semana === d))) {
+    for (const { aula: a, faixa, total } of emFaixas(c.aulas)) {
       const p = profPorId(a.professor_id);
+      const sala = salaPorId(a.sala_id);
       const top = yDe(toMin(a.hora_inicio));
       const h = Math.max(yDe(toMin(a.hora_fim)) - top - 2, 18);
       const w = 100 / total;
       const nomes = a.alunos.map((id) => alunoPorId(id)?.nome?.split(" ")[0]).filter(Boolean);
       const titulo = a.disciplina || a.categoria || "Aula";
+      const extra = [p?.nome, !salasVista ? sala?.nome : null].filter(Boolean).map(esc).join(" · ");
       html += `
         <div class="lesson" data-id="${a.id}" tabindex="0"
              style="top:${top + 1}px;height:${h}px;left:calc(${faixa * w}% + 3px);width:calc(${w}% - 6px);background:${esc(p?.cor ?? "#eeeeee")}"
-             title="${esc(titulo)} · ${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}${p ? " · " + esc(p.nome) : ""}">
+             title="${esc(titulo)} · ${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}${extra ? " · " + extra : ""}">
           <strong>${esc(titulo)}</strong>
-          <span class="lesson__time">${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}${p ? " · " + esc(p.nome) : ""}</span>
+          <span class="lesson__time">${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}${extra ? " · " + extra : ""}</span>
           ${nomes.length ? `<div class="lesson__students">${nomes.map(esc).join(", ")}</div>` : ""}
         </div>`;
     }
     html += `</div>`;
   }
+  if (!cols.length) html += `<div class="empty" style="grid-column: 2 / -1">Ainda não há salas — cria-as na página Salas.</div>`;
   el.innerHTML = html;
 
+  $("day-tabs").classList.toggle("day-tabs--always", salasVista);
   $("day-tabs").innerHTML = DIAS_VISIVEIS.map(
-    (d) => `<button type="button" data-day="${d}" aria-pressed="${d === diaAtivo}">${DIAS_CURTOS[d]}</button>`
+    (d) => `<button type="button" data-day="${d}" aria-pressed="${d === diaAtivo}">${salasVista ? DIAS[d] : DIAS_CURTOS[d]}</button>`
   ).join("");
 }
 
@@ -167,7 +206,7 @@ $("schedule").addEventListener("click", (e) => {
   const y = e.clientY - col.getBoundingClientRect().top;
   const ini = INICIO + Math.floor(y / SLOT_PX) * SLOT_MIN;
   const fmt = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-  abrir(null, { dia_semana: Number(col.dataset.day), hora_inicio: fmt(ini), hora_fim: fmt(Math.min(ini + 60, FIM)) });
+  abrir(null, { dia_semana: Number(col.dataset.day), sala_id: col.dataset.sala || null, hora_inicio: fmt(ini), hora_fim: fmt(Math.min(ini + 60, FIM)) });
 });
 
 $("schedule").addEventListener("keydown", (e) => {
@@ -182,6 +221,14 @@ $("day-tabs").addEventListener("click", (e) => {
 });
 
 $("filter-prof").addEventListener("change", render);
+$("filter-sala").addEventListener("change", render);
+document.querySelectorAll(".segmented [data-view]").forEach((b) =>
+  b.addEventListener("click", () => {
+    vista = b.dataset.view;
+    document.querySelectorAll(".segmented [data-view]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    render();
+  })
+);
 $("filter-aluno").addEventListener("input", render);
 $("nova").addEventListener("click", () => abrir(null, { dia_semana: diaAtivo, hora_inicio: "14:00", hora_fim: "15:00" }));
 
@@ -233,6 +280,9 @@ function conflitos(dados) {
     const quando = `${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}`;
     if (dados.professor_id && a.professor_id === dados.professor_id) {
       avisos.push(`${profPorId(a.professor_id)?.nome} já tem aula das ${quando}.`);
+    }
+    if (dados.sala_id && a.sala_id === dados.sala_id) {
+      avisos.push(`${salaPorId(a.sala_id)?.nome} já está ocupada das ${quando}.`);
     }
     for (const id of a.alunos) {
       if (selecionados.has(id)) avisos.push(`${alunoPorId(id)?.nome} já está numa aula das ${quando}.`);

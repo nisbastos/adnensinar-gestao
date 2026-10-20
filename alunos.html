@@ -16,12 +16,13 @@
     <div class="page-head">
       <h1>Alunos</h1>
       <div class="toolbar">
-        <input class="input search" id="search" type="search" placeholder="Pesquisar nome, escola, encarregado…" />
+        <input class="input search" id="search" type="search" placeholder="Pesquisar nome, escola, NIF, encarregado…" />
         <select class="select" id="filter-estado" style="width:auto">
           <option value="ativos">Ativos</option>
           <option value="inativos">Inativos</option>
           <option value="todos">Todos</option>
         </select>
+        <a class="btn btn--ghost" href="importar.html">Importar CSV</a>
         <button class="btn" id="novo">+ Novo aluno</button>
       </div>
     </div>
@@ -35,6 +36,7 @@
             <th>Nome</th>
             <th>Ano</th>
             <th>Serviço</th>
+            <th>Escola</th>
             <th>Encarregado de educação</th>
             <th>Contacto</th>
             <th>Aulas/semana</th>
@@ -46,7 +48,7 @@
     </div>
   </main>
 
-  <dialog class="modal" id="modal">
+  <dialog class="modal modal--wide" id="modal">
     <form id="form" method="dialog" novalidate>
       <div class="modal__head">
         <h2 id="modal-title">Novo aluno</h2>
@@ -54,17 +56,52 @@
       </div>
       <div class="modal__body">
         <div class="form-grid">
+          <h3 class="form-section span-2">Aluno</h3>
           <div class="field span-2">
-            <label for="f-nome">Nome *</label>
+            <label for="f-nome">Nome completo *</label>
             <input class="input" id="f-nome" name="nome" required />
+          </div>
+          <div class="field">
+            <label for="f-nasc">Data de nascimento</label>
+            <input class="input" id="f-nasc" name="data_nascimento" type="date" />
+          </div>
+          <div class="field">
+            <label for="f-nif">NIF</label>
+            <input class="input" id="f-nif" name="nif" inputmode="numeric" />
+          </div>
+          <div class="field">
+            <label for="f-telal">Telemóvel do aluno</label>
+            <input class="input" id="f-telal" name="telemovel_aluno" type="tel" />
+          </div>
+          <div class="field">
+            <label for="f-insc">Data de inscrição</label>
+            <input class="input" id="f-insc" name="data_inscricao" type="date" />
+          </div>
+          <div class="field span-2">
+            <label for="f-morada">Morada</label>
+            <input class="input" id="f-morada" name="morada" />
+          </div>
+          <div class="field">
+            <label for="f-cp">Código postal</label>
+            <input class="input" id="f-cp" name="codigo_postal" />
+          </div>
+          <div class="field">
+            <label for="f-loc">Localidade</label>
+            <input class="input" id="f-loc" name="localidade" />
+          </div>
+
+          <h3 class="form-section span-2">Escola e apoio</h3>
+          <div class="field span-2">
+            <label for="f-escola">Escola</label>
+            <input class="input" id="f-escola" name="escola" />
           </div>
           <div class="field">
             <label for="f-ano">Ano escolar</label>
             <select class="select" id="f-ano" name="ano_escolar"></select>
           </div>
           <div class="field">
-            <label for="f-escola">Escola</label>
-            <input class="input" id="f-escola" name="escola" />
+            <label for="f-turma">Ano e turma (como no formulário)</label>
+            <input class="input" id="f-turma" name="ano_turma" />
           </div>
           <div class="field">
             <label for="f-servico">Serviço</label>
@@ -76,28 +113,73 @@
             </select>
           </div>
           <div class="field">
-            <label for="f-disc">Disciplinas</label>
+            <label for="f-disc">Disciplinas no centro</label>
             <input class="input" id="f-disc" name="disciplinas" placeholder="ex.: Matemática, Português" />
           </div>
           <div class="field span-2">
-            <label for="f-ee">Encarregado de educação</label>
+            <label for="f-dif">Disciplinas com mais dificuldade</label>
+            <textarea class="textarea" id="f-dif" name="dificuldades"></textarea>
+          </div>
+          <div class="field span-2">
+            <label for="f-saude">Saúde, alergias ou restrições alimentares</label>
+            <textarea class="textarea" id="f-saude" name="saude"></textarea>
+          </div>
+          <div class="field span-2">
+            <label for="f-como">Como conheceu o ADN Ensinar</label>
+            <input class="input" id="f-como" name="como_conheceu" />
+          </div>
+
+          <h3 class="form-section span-2">Encarregado de educação</h3>
+          <div class="field span-2">
+            <label for="f-ee">Nome completo</label>
             <input class="input" id="f-ee" name="encarregado_nome" />
           </div>
           <div class="field">
-            <label for="f-tel">Telefone</label>
+            <label for="f-tel">Telemóvel</label>
             <input class="input" id="f-tel" name="encarregado_telefone" type="tel" />
           </div>
           <div class="field">
             <label for="f-email">Email</label>
             <input class="input" id="f-email" name="encarregado_email" type="email" />
           </div>
+          <div class="field">
+            <label for="f-par">Grau de parentesco</label>
+            <input class="input" id="f-par" name="encarregado_parentesco" />
+          </div>
+          <div class="field">
+            <label for="f-prof">Profissão</label>
+            <input class="input" id="f-prof" name="encarregado_profissao" />
+          </div>
+
+          <h3 class="form-section span-2">Autorizações</h3>
+          <label class="check span-2"><input type="checkbox" name="autoriza_credenciais" /> Partilha das credenciais escolares (email e password institucional)</label>
+          <label class="check span-2"><input type="checkbox" name="autoriza_imagem" /> Captação e uso de imagem, voz e/ou vídeo para divulgação</label>
+          <label class="check span-2"><input type="checkbox" name="autoriza_saida" /> Saída das instalações durante o funcionamento (atividades supervisionadas)</label>
+          <label class="check span-2"><input type="checkbox" name="aceita_regulamento" /> Aceitou o Regulamento Interno e as Condições de Inscrição</label>
+
+          <h3 class="form-section span-2">Credenciais escolares</h3>
+          <div class="field">
+            <label for="f-einst">Email institucional</label>
+            <input class="input" id="f-einst" name="email_institucional" type="email" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="f-pinst">Password institucional</label>
+            <div class="pw">
+              <input class="input" id="f-pinst" name="password_institucional" type="password" autocomplete="new-password" />
+              <button type="button" class="btn btn--ghost btn--sm" id="pw-toggle">Mostrar</button>
+            </div>
+          </div>
+
+          <h3 class="form-section span-2">Estado e notas</h3>
+          <label class="check"><input type="checkbox" name="ativo" checked /> Aluno ativo</label>
+          <div class="field">
+            <label for="f-desist">Data de desistência</label>
+            <input class="input" id="f-desist" name="data_desistencia" type="date" />
+          </div>
           <div class="field span-2">
-            <label for="f-notas">Notas</label>
+            <label for="f-notas">Notas internas</label>
             <textarea class="textarea" id="f-notas" name="notas"></textarea>
           </div>
-          <label class="check span-2">
-            <input type="checkbox" name="ativo" checked /> Aluno ativo
-          </label>
           <div class="span-2 small muted" id="f-aulas"></div>
         </div>
       </div>

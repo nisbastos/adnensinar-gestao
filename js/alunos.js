@@ -43,7 +43,7 @@ function render() {
     if (estado === "ativos" && !a.ativo) return false;
     if (estado === "inativos" && a.ativo) return false;
     if (!q) return true;
-    return norm([a.nome, a.escola, a.encarregado_nome, a.encarregado_email, a.disciplinas].join(" ")).includes(q);
+    return norm([a.nome, a.escola, a.encarregado_nome, a.encarregado_email, a.disciplinas, a.nif, a.localidade, a.ano_turma].join(" ")).includes(q);
   });
 
   $("contagem").textContent = `${filtrados.length} ${filtrados.length === 1 ? "aluno" : "alunos"}`;
@@ -58,6 +58,7 @@ function render() {
           <td><strong>${esc(a.nome)}</strong>${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
           <td>${esc(a.ano_escolar) || `<span class="muted">—</span>`}</td>
           <td>${servicoBadge(a.servico)}</td>
+          <td>${esc(a.escola) || `<span class="muted">—</span>`}</td>
           <td>${esc(a.encarregado_nome) || `<span class="muted">—</span>`}</td>
           <td class="small">${contacto || `<span class="muted">—</span>`}</td>
           <td>${n || `<span class="muted">0</span>`}</td>
@@ -71,6 +72,8 @@ function abrir(aluno = null) {
   form.reset();
   fillForm(form, aluno ?? { ativo: true });
   $("modal-title").textContent = aluno ? "Editar aluno" : "Novo aluno";
+  $("f-pinst").type = "password";
+  $("pw-toggle").textContent = "Mostrar";
   $("apagar").hidden = !aluno;
 
   const aulas = (aluno && aulasPorAluno.get(aluno.id)) || [];
@@ -88,6 +91,12 @@ function abrir(aluno = null) {
 lista.addEventListener("click", (e) => {
   const tr = e.target.closest("tr[data-id]");
   if (tr) abrir(alunos.find((a) => a.id === tr.dataset.id));
+});
+
+$("pw-toggle").addEventListener("click", () => {
+  const i = $("f-pinst");
+  i.type = i.type === "password" ? "text" : "password";
+  $("pw-toggle").textContent = i.type === "password" ? "Mostrar" : "Esconder";
 });
 
 $("novo").addEventListener("click", () => abrir());

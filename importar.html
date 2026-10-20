@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Importar | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Importar alunos</h1>
+    </div>
+
+    <section class="card" style="padding:22px; max-width:760px">
+      <p style="margin-top:0">
+        Importa o <strong>Formulário de Inscrição</strong> exportado da Google Sheet
+        (<em>Ficheiro → Transferir → CSV</em>, uma vez por separador).
+        O ficheiro é lido aqui no teu browser e enviado diretamente para a base de dados.
+      </p>
+      <div class="form-grid">
+        <div class="field span-2">
+          <label for="tipo">Este ficheiro tem…</label>
+          <select class="select" id="tipo">
+            <option value="ativos">Separador "Respostas" — alunos inscritos (ficam ativos)</option>
+            <option value="desistencias">Separador "Desistências" — ficam inativos</option>
+          </select>
+        </div>
+        <div class="field span-2">
+          <label for="ficheiro">Ficheiro CSV</label>
+          <input class="input" id="ficheiro" type="file" accept=".csv,text/csv" />
+        </div>
+      </div>
+      <p class="small muted">
+        Se o aluno já existir (mesmo NIF ou, sem NIF, mesmo nome), os dados do formulário são atualizados.
+        Serviço, disciplinas no centro, notas internas e horário não são tocados.
+      </p>
+    </section>
+
+    <section id="preview" hidden style="margin-top:20px">
+      <p id="resumo"></p>
+      <div class="card table-wrap">
+        <table class="table">
+          <thead><tr><th>Ação</th><th>Nome</th><th>Ano</th><th>Escola</th><th>Encarregado</th></tr></thead>
+          <tbody id="linhas"></tbody>
+        </table>
+      </div>
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn" id="confirmar">Importar</button>
+        <button class="btn btn--ghost" id="cancelar">Cancelar</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="js/importar.js"></script>
+</body>
+</html>

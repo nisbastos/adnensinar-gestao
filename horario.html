@@ -16,7 +16,14 @@
     <div class="page-head">
       <h1>Horário semanal</h1>
       <div class="toolbar">
-        <select class="select" id="filter-prof" style="width:auto">
+        <div class="segmented" role="group" aria-label="Vista">
+          <button type="button" data-view="semana" aria-pressed="true">Semana</button>
+          <button type="button" data-view="salas" aria-pressed="false">Por sala</button>
+        </div>
+        <select class="select" id="filter-sala">
+          <option value="">Todas as salas</option>
+        </select>
+        <select class="select" id="filter-prof">
           <option value="">Todos os professores</option>
         </select>
         <input class="input search" id="filter-aluno" type="search" placeholder="Filtrar por aluno…" />
@@ -26,7 +33,7 @@
 
     <div class="day-tabs" id="day-tabs" role="group" aria-label="Dia"></div>
 
-    <div class="card">
+    <div class="card schedule-wrap">
       <div class="schedule" id="schedule"></div>
     </div>
 
@@ -72,7 +79,7 @@
           </div>
           <div class="field">
             <label for="f-sala">Sala</label>
-            <input class="input" id="f-sala" name="sala" />
+            <select class="select" id="f-sala" name="sala_id"></select>
           </div>
           <div class="field span-2">
             <label for="f-pick-search">Alunos <span class="muted" id="pick-count"></span></label>

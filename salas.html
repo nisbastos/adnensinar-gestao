@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Salas | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Salas</h1>
+      <div class="toolbar">
+        <button class="btn" id="novo">+ Nova sala</button>
+      </div>
+    </div>
+
+    <div class="card table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Ordem</th><th>Nome</th><th>Aulas/semana</th><th>Estado</th></tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div class="empty" id="vazio" hidden>Ainda não há salas. Adiciona-as para dividires o horário por sala.</div>
+    </div>
+  </main>
+
+  <dialog class="modal" id="modal">
+    <form id="form" method="dialog" novalidate>
+      <div class="modal__head">
+        <h2 id="modal-title">Nova sala</h2>
+        <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-grid">
+          <div class="field">
+            <label for="f-nome">Nome *</label>
+            <input class="input" id="f-nome" name="nome" required />
+          </div>
+          <div class="field">
+            <label for="f-ordem">Ordem no horário</label>
+            <input class="input" id="f-ordem" name="ordem" type="number" min="0" step="1" />
+          </div>
+          <label class="check span-2"><input type="checkbox" name="ativo" checked /> Sala em uso</label>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--danger" id="apagar" hidden>Apagar</button>
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn" id="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal } from "./js/app.js";
+
+    await requireAuth();
+
+    const $ = (id) => document.getElementById(id);
+    const modal = $("modal");
+    const form = $("form");
+    wireModal(modal);
+
+    let salas = [];
+    let contagem = new Map();
+    let editId = null;
+
+    async function carregar() {
+      const [{ data: s, error: e1 }, { data: h, error: e2 }] = await Promise.all([
+        sb.from("salas").select("*").order("ordem").order("nome"),
+        sb.from("horario").select("sala_id"),
+      ]);
+      if (failed(e1, "Erro a carregar salas") || failed(e2, "Erro a carregar horário")) return;
+      salas = s;
+      contagem = new Map();
+      for (const r of h) contagem.set(r.sala_id, (contagem.get(r.sala_id) ?? 0) + 1);
+
+      $("vazio").hidden = salas.length > 0;
+      $("lista").innerHTML = salas.map((s) => `
+        <tr data-id="${s.id}">
+          <td class="muted">${s.ordem}</td>
+          <td><strong>${esc(s.nome)}</strong></td>
+          <td>${contagem.get(s.id) ?? 0}</td>
+          <td>${s.ativo ? '<span class="badge badge--green">Em uso</span>' : '<span class="badge badge--off">Fora de uso</span>'}</td>
+        </tr>`).join("");
+    }
+
+    function abrir(s = null) {
+      editId = s?.id ?? null;
+      form.reset();
+      fillForm(form, s ?? { ativo: true, ordem: salas.length + 1 });
+      $("modal-title").textContent = s ? "Editar sala" : "Nova sala";
+      $("apagar").hidden = !s;
+      modal.showModal();
+      $("f-nome").focus();
+    }
+
+    $("lista").addEventListener("click", (e) => {
+      const tr = e.target.closest("tr[data-id]");
+      if (tr) abrir(salas.find((s) => s.id === tr.dataset.id));
+    });
+    $("novo").addEventListener("click", () => abrir());
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const dados = formData(form);
+      if (!dados.nome) return toast("O nome é obrigatório.", true);
+      dados.ordem = Number(dados.ordem ?? 0);
+      $("guardar").disabled = true;
+      const { error } = editId
+        ? await sb.from("salas").update(dados).eq("id", editId)
+        : await sb.from("salas").insert(dados);
+      $("guardar").disabled = false;
+      if (failed(error, "Não foi possível guardar")) return;
+      modal.close();
+      toast("Guardado.");
+      carregar();
+    });
+
+    $("apagar").addEventListener("click", async () => {
+      const s = salas.find((x) => x.id === editId);
+      if (!confirm(`Apagar a sala "${s.nome}"?\n\nAs aulas desta sala ficam sem sala atribuída.`)) return;
+      const { error } = await sb.from("salas").delete().eq("id", editId);
+      if (failed(error, "Não foi possível apagar")) return;
+      modal.close();
+      toast("Sala apagada.");
+      carregar();
+    });
+
+    carregar();
+  </script>
+</body>
+</html>
