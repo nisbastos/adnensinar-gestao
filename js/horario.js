@@ -7,7 +7,10 @@ const DIAS_VISIVEIS = [1, 2, 3, 4, 5]; // segunda a sexta (sábado e domingo fec
 let INICIO = 9 * 60;     // 09:00 (alarga se houver aulas mais cedo)
 let FIM = 19 * 60;       // 19:00 (alarga se houver aulas mais tarde)
 const SLOT_MIN = 30;     // cada linha = 30 min
-let SLOT_PX = 28;        // altura de cada linha (reduz ao imprimir)
+// Altura de cada linha de 30 min: mais alta nas explicações (cartões curtos com mais texto).
+const SLOT_ECRA = { "Apoio ao Estudo": 28, "Explicação": 36 };
+let SLOT_PX = 28;
+let aImprimir = false;
 
 // Períodos fechados [dia (0 = todos), início, fim], para sombrear na grelha.
 const FECHADO = [
@@ -179,6 +182,7 @@ function ajustarIntervalo() {
 
 function render() {
   ajustarIntervalo();
+  if (!aImprimir) SLOT_PX = SLOT_ECRA[tipo] ?? 28;
   const el = $("schedule");
   const gs = grupos(filtradas());
   const total = gs.reduce((n, g) => n + g.cols.length, 0);
@@ -225,8 +229,11 @@ function render() {
         const top = yDe(toMin(a.hora_inicio));
         const h = Math.max(yDe(toMin(a.hora_fim)) - top - 2, 18);
         const w = 100 / n;
-        const nomes = [...a.alunos.map((id) => nomeCurto(alunoPorId(id)?.nome)).filter(Boolean), ...porAssociar(a)];
         const apoio = a.categoria === "Apoio ao Estudo";
+        const nomes = [
+          ...a.alunos.map((id) => (apoio ? alunoPorId(id)?.nome?.split(" ")[0] : nomeCurto(alunoPorId(id)?.nome))).filter(Boolean),
+          ...porAssociar(a),
+        ];
         const titulo = discPorId(a.disciplina_id)?.nome || a.categoria || "Aula";
         const outra = a.categoria && a.categoria !== tipo;
         const quando = `${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}`;
@@ -239,6 +246,7 @@ function render() {
               ? `<strong>${quando}</strong>
                  ${p ? `<span class="lesson__time">${esc(profCurto(p))}</span>` : ""}
                  ${outra ? `<span class="lesson__tag">${esc(a.categoria)}</span>` : ""}
+                 ${nomes.length ? `<div class="lesson__students">${nomes.map(esc).join(", ")}</div>` : ""}
                  <span class="lesson__count">${nomes.length} ${nomes.length === 1 ? "aluno" : "alunos"}</span>`
               : `<strong>${esc(titulo)}</strong>
                  ${nomes.length ? `<span class="lesson__students">${nomes.map(esc).join(", ")}</span>` : ""}
@@ -317,19 +325,27 @@ function descricaoFiltros() {
 
 const tituloOriginal = document.title;
 
+// A4 deitado com margens de 8 mm: ~733 px de altura útil. Reservamos o cabeçalho,
+// as linhas dos dias/salas e a legenda, e o resto é repartido pelas linhas do horário.
+const ALTURA_UTIL_PX = 733;
+const RESERVADO_PX = 165;
+
 window.addEventListener("beforeprint", () => {
-  const partes = descricaoFiltros();
+  const partes = descricaoFiltros().slice(1);
   const hoje = new Date().toLocaleDateString("pt-PT");
-  $("print-title").textContent = "Horário · ADN Ensinar";
-  $("print-sub").textContent = `${partes.join(" · ")} — gerado a ${hoje}`;
-  document.title = `Horário ADN Ensinar - ${partes.join(" - ").replace(/[\\/:*?"<>|]/g, "")}`;
-  SLOT_PX = 24;
+  $("print-title").textContent = tipo === "Explicação" ? "Horário de Explicações" : "Horário de Apoio ao Estudo";
+  $("print-sub").textContent = [...partes, `Gerado a ${hoje}`].join(" · ");
+  document.title = `Horário ADN Ensinar - ${descricaoFiltros().join(" - ").replace(/[\\/:*?"<>|]/g, "")}`;
+  aImprimir = true;
+  ajustarIntervalo();
+  const linhas = (FIM - INICIO) / SLOT_MIN;
+  SLOT_PX = Math.max(12, Math.min(30, Math.floor((ALTURA_UTIL_PX - RESERVADO_PX) / linhas)));
   render();
 });
 
 window.addEventListener("afterprint", () => {
   document.title = tituloOriginal;
-  SLOT_PX = 28;
+  aImprimir = false;
   render();
 });
 

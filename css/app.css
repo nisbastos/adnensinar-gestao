@@ -607,15 +607,14 @@ table.table {
 
   .page { padding: 0; max-width: none; }
 
-  .print-head {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 8px;
-  }
-  .print-head img { width: 54px; }
-  .print-head h2 { font-size: 22px; }
-  .print-head p { margin: 2px 0 0; color: var(--c-dark); font-size: 12px; }
+  .print-head { display: block; margin-bottom: 8px; }
+  .print-brand { display: flex; align-items: center; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--c-line); }
+  .print-brand img { width: 44px; height: 44px; border-radius: 50%; }
+  .print-brand__title { display: block; font-family: var(--font-title); font-size: 20px; letter-spacing: .5px; color: #565656; }
+  .print-brand__tag { display: block; font-size: 12px; color: #aaaaaa; letter-spacing: .2px; }
+  .print-title { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-top: 8px; }
+  .print-title h2 { font-size: 20px; color: var(--c-dark-2); }
+  .print-title p { margin: 0; color: var(--c-mid); font-size: 11px; text-align: right; }
 
   .card { box-shadow: none; border: 1px solid var(--c-line); border-radius: 10px; }
   .schedule-wrap { overflow: hidden; }
@@ -625,6 +624,10 @@ table.table {
   .schedule__dayhead, .schedule__corner { position: static; padding: 6px; }
   .schedule__col { cursor: default; }
   .lesson { box-shadow: none; break-inside: avoid; font-size: 9px; padding: 2px 4px; line-height: 1.2; }
+  .lesson__count { font-size: 8px; }
+  .lesson--exp .lesson__time, .lesson--exp .lesson__prof { font-size: 8.5px; }
+  .lesson--exp .lesson__students { font-size: 9px; }
+  .page, .schedule-wrap { break-inside: avoid; }
   .lesson strong { font-size: 9.5px; }
   .schedule__roomhead { font-size: 9.5px; padding: 2px 3px 5px; }
   .schedule__time { font-size: 10px; }
