@@ -28,9 +28,10 @@ Acesso só com login.
 | `supabase/002_inscricao_salas.sql` | Campos do formulário de inscrição + salas — correr 2.º |
 | `supabase/003_tipo_salas.sql` | Tipo de sala (Apoio / Explicação / Ambas) — correr 3.º |
 | `supabase/004_disciplinas.sql` | Disciplinas como lista de escolha — correr 4.º |
+| `supabase/005_professores_disciplinas.sql` | Disciplinas por professor + lista do básico/secundário — correr 5.º |
 
 ## Primeira configuração
 
-1. Supabase → SQL Editor → correr `supabase/schema.sql` depois `002_inscricao_salas.sql`, `003_tipo_salas.sql` e `004_disciplinas.sql`.
+1. Supabase → SQL Editor → correr `supabase/schema.sql` depois `002_inscricao_salas.sql`, `003_tipo_salas.sql`, `004_disciplinas.sql` e `005_professores_disciplinas.sql`.
 2. GitHub → Settings → Pages → Source: *Deploy from a branch* → `main` / `(root)`.
 3. Abrir o endereço do Pages e entrar com o utilizador criado no Supabase.
