@@ -32,6 +32,7 @@ const NAV = [
   { href: "alunos.html", label: "Alunos" },
   { href: "professores.html", label: "Professores" },
   { href: "salas.html", label: "Salas" },
+  { href: "disciplinas.html", label: "Disciplinas" },
 ];
 
 /** Garante sessão iniciada; se não houver, volta ao login. Devolve o utilizador. */

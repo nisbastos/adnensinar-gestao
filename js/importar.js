@@ -215,13 +215,14 @@ $("ficheiro-horario").addEventListener("change", async (e) => {
   try { dados = JSON.parse(await f.text()); } catch { return toast("O ficheiro não é um JSON válido.", true); }
   if (dados.formato !== "adn-horario-v1") return toast("Este ficheiro não é um horário do ADN Ensinar.", true);
 
-  const [ra, rs, rp, rh] = await Promise.all([
+  const [ra, rs, rp, rh, rd] = await Promise.all([
     sb.from("alunos").select("id, nome, ano_escolar, ano_turma, ativo"),
     sb.from("salas").select("*"),
     sb.from("professores").select("*"),
     sb.from("horario").select("dia_semana, hora_inicio, sala_id, categoria"),
+    sb.from("disciplinas").select("*"),
   ]);
-  if (failed(ra.error, "Erro a ler alunos") || failed(rs.error, "Erro a ler salas") || failed(rp.error, "Erro a ler professores") || failed(rh.error, "Erro a ler horário")) return;
+  if (failed(ra.error, "Erro a ler alunos") || failed(rs.error, "Erro a ler salas") || failed(rp.error, "Erro a ler professores") || failed(rh.error, "Erro a ler horário") || failed(rd.error, "Erro a ler disciplinas")) return;
 
   const ativos = ra.data.filter((a) => a.ativo);
   const salaExistente = (nome) => rs.data.find((s) => norm(s.nome) === norm(nome) || norm(s.nome) === norm("Sala " + nome));
@@ -239,8 +240,12 @@ $("ficheiro-horario").addEventListener("change", async (e) => {
     return { ...a, assoc, falta };
   });
 
+  const discExistente = (nome) => rd.data.find((d) => norm(d.nome) === norm(nome));
+  const nomesDisc = [...new Set(dados.aulas.map((a) => a.disciplina).filter(Boolean))];
+
   planoHorario = {
-    dados, aulas, existentes: rh.data,
+    dados, aulas, existentes: rh.data, discExistente, nomesDisc,
+    discNovas: nomesDisc.filter((n) => !discExistente(n)),
     salasNovas: dados.salas.filter((s) => !salaExistente(s.nome)),
     profsNovos: dados.professores.filter((p) => !profExistente(p)),
     salaExistente, profExistente,
@@ -252,6 +257,7 @@ $("ficheiro-horario").addEventListener("change", async (e) => {
     `<strong>${aulas.length}</strong> aulas. ` +
     `Salas novas: <strong>${planoHorario.salasNovas.map((s) => esc(s.nome)).join(", ") || "nenhuma"}</strong>. ` +
     `Professores novos: <strong>${planoHorario.profsNovos.map(esc).join(", ") || "nenhum"}</strong>. ` +
+    `Disciplinas novas: <strong>${planoHorario.discNovas.map(esc).join(", ") || "nenhuma"}</strong>. ` +
     `Alunos associados: <strong>${totalNomes - totalFalta}</strong> de ${totalNomes}` +
     (totalFalta ? ` — os restantes ficam nas notas da aula.` : ".");
 
@@ -304,6 +310,15 @@ $("confirmar-horario").addEventListener("click", async () => {
       profId.set(nome, data.id);
     }
 
+    const discId = new Map();
+    for (const nome of p.nomesDisc) {
+      const ex = p.discExistente(nome);
+      if (ex) { discId.set(nome, ex.id); continue; }
+      const { data, error } = await sb.from("disciplinas").insert({ nome, ordem: 99 }).select("id").single();
+      if (failed(error, `Erro a criar a disciplina ${nome}`)) return;
+      discId.set(nome, data.id);
+    }
+
     // 2) Aulas (sem duplicar)
     let criadas = 0, saltadas = 0;
     for (const a of p.aulas) {
@@ -315,7 +330,7 @@ $("confirmar-horario").addEventListener("click", async () => {
       const notas = [a.notas, a.falta.length ? `Alunos por associar: ${a.falta.join(", ")}` : null].filter(Boolean).join("\n") || null;
       const { data, error } = await sb.from("horario").insert({
         dia_semana: a.dia, hora_inicio: a.inicio, hora_fim: a.fim, sala_id: sid,
-        categoria: a.categoria, disciplina: a.disciplina, professor_id: a.professor ? profId.get(a.professor) : null, notas,
+        categoria: a.categoria, disciplina_id: a.disciplina ? discId.get(a.disciplina) : null, professor_id: a.professor ? profId.get(a.professor) : null, notas,
       }).select("id").single();
       if (failed(error, "Erro a criar aula")) return;
       const ids = [...new Set(a.assoc.map((x) => x.id))];

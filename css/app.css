@@ -374,6 +374,22 @@ table.table {
 .pick-list .check { padding: 6px 8px; border-radius: 8px; }
 .pick-list .check:hover { background: var(--c-brand-1-soft); }
 
+/* Escolha múltipla em "chips" */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { position: relative; cursor: pointer; }
+.chip input { position: absolute; opacity: 0; }
+.chip span {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #d9dede;
+  background: #fff;
+  font-size: 14px;
+  transition: background .15s, border-color .15s;
+}
+.chip input:checked + span { background: var(--c-brand-1); border-color: var(--c-brand-1); font-weight: 600; }
+.chip input:focus-visible + span { outline: 2px solid var(--c-brand-2); outline-offset: 2px; }
+
 /* ---------- Toast ---------- */
 
 .toast {

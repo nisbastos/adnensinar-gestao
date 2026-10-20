@@ -24,6 +24,7 @@ wireModal(modal);
 let aulas = [];       // horario + alunos
 let profs = [];
 let salas = [];
+let disciplinas = [];
 let alunos = [];
 let editId = null;
 let tipo = "Apoio ao Estudo"; // vista: "Apoio ao Estudo" | "Explicação"
@@ -34,18 +35,24 @@ $("f-dia").innerHTML = DIAS.slice(1).map((d, i) => `<option value="${i + 1}">${d
 // ---------- Dados ----------
 
 async function carregar() {
-  const [r1, r2, r3, r4] = await Promise.all([
+  const [r1, r2, r3, r4, r5] = await Promise.all([
     sb.from("horario").select("*, horario_alunos(aluno_id)").order("hora_inicio"),
     sb.from("professores").select("*").order("nome"),
     sb.from("alunos").select("id, nome, ano_escolar, ativo").order("nome"),
     sb.from("salas").select("*").order("ordem").order("nome"),
+    sb.from("disciplinas").select("*").order("ordem").order("nome"),
   ]);
-  if (failed(r1.error, "Erro a carregar horário") || failed(r2.error, "Erro a carregar professores") || failed(r3.error, "Erro a carregar alunos") || failed(r4.error, "Erro a carregar salas")) return;
+  if (failed(r1.error, "Erro a carregar horário") || failed(r2.error, "Erro a carregar professores") || failed(r3.error, "Erro a carregar alunos") || failed(r4.error, "Erro a carregar salas") || failed(r5.error, "Erro a carregar disciplinas")) return;
 
   aulas = r1.data.map((a) => ({ ...a, alunos: a.horario_alunos.map((x) => x.aluno_id) }));
   profs = r2.data;
   alunos = r3.data;
   salas = r4.data;
+  disciplinas = r5.data;
+
+  $("f-disc").innerHTML =
+    `<option value="">—</option>` +
+    disciplinas.filter((d) => d.ativo).map((d) => `<option value="${d.id}">${esc(d.nome)}</option>`).join("");
 
   $("f-sala").innerHTML =
     `<option value="">—</option>` +
@@ -87,6 +94,7 @@ function preencherFiltroSala() {
 const profPorId = (id) => profs.find((p) => p.id === id);
 const alunoPorId = (id) => alunos.find((a) => a.id === id);
 const salaPorId = (id) => salas.find((x) => x.id === id);
+const discPorId = (id) => disciplinas.find((d) => d.id === id);
 
 /** "César Silva" → "Prof. César" */
 const profCurto = (p) => (p ? `Prof. ${String(p.nome).trim().split(/\s+/)[0]}` : "");
@@ -219,7 +227,7 @@ function render() {
         const w = 100 / n;
         const nomes = [...a.alunos.map((id) => nomeCurto(alunoPorId(id)?.nome)).filter(Boolean), ...porAssociar(a)];
         const apoio = a.categoria === "Apoio ao Estudo";
-        const titulo = a.disciplina || a.categoria || "Aula";
+        const titulo = discPorId(a.disciplina_id)?.nome || a.categoria || "Aula";
         const outra = a.categoria && a.categoria !== tipo;
         const quando = `${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}`;
         const tooltip = [titulo, quando, profCurto(p), a.categoria, nomes.join(", ")].filter(Boolean).map(esc).join(" · ");
@@ -357,6 +365,10 @@ $("f-pick-search").addEventListener("input", renderPick);
 
 function abrir(aula = null, base = {}) {
   editId = aula?.id ?? null;
+  const atual = aula?.disciplina_id && discPorId(aula.disciplina_id);
+  if (atual && !atual.ativo && !$("f-disc").querySelector(`option[value="${atual.id}"]`)) {
+    $("f-disc").insertAdjacentHTML("beforeend", `<option value="${atual.id}">${esc(atual.nome)} (fora de uso)</option>`);
+  }
   form.reset();
   fillForm(form, aula ?? base);
   selecionados = new Set(aula?.alunos ?? []);

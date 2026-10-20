@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Disciplinas | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Disciplinas</h1>
+      <div class="toolbar">
+        <button class="btn" id="novo">+ Nova disciplina</button>
+      </div>
+    </div>
+
+    <div class="card table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Ordem</th><th>Nome</th><th>Aulas/semana</th><th>Alunos</th><th>Estado</th></tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div class="empty" id="vazio" hidden>Ainda não há disciplinas.</div>
+    </div>
+  </main>
+
+  <dialog class="modal" id="modal">
+    <form id="form" method="dialog" novalidate>
+      <div class="modal__head">
+        <h2 id="modal-title">Nova disciplina</h2>
+        <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-grid">
+          <div class="field">
+            <label for="f-nome">Nome *</label>
+            <input class="input" id="f-nome" name="nome" required />
+          </div>
+          <div class="field">
+            <label for="f-ordem">Ordem no horário</label>
+            <input class="input" id="f-ordem" name="ordem" type="number" min="0" step="1" />
+          </div>
+          <label class="check span-2"><input type="checkbox" name="ativo" checked /> Disciplina em uso (aparece nas listas de escolha)</label>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--danger" id="apagar" hidden>Apagar</button>
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn" id="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal } from "./js/app.js";
+
+    await requireAuth();
+
+    const $ = (id) => document.getElementById(id);
+    const modal = $("modal");
+    const form = $("form");
+    wireModal(modal);
+
+    let lista = [];
+    let nAulas = new Map(), nAlunos = new Map();
+    let editId = null;
+
+    async function carregar() {
+      const [r1, r2, r3] = await Promise.all([
+        sb.from("disciplinas").select("*").order("ordem").order("nome"),
+        sb.from("horario").select("disciplina_id"),
+        sb.from("aluno_disciplinas").select("disciplina_id"),
+      ]);
+      if (failed(r1.error, "Erro a carregar disciplinas") || failed(r2.error, "Erro a carregar horário") || failed(r3.error, "Erro a carregar alunos")) return;
+      lista = r1.data;
+      nAulas = new Map(); nAlunos = new Map();
+      for (const r of r2.data) nAulas.set(r.disciplina_id, (nAulas.get(r.disciplina_id) ?? 0) + 1);
+      for (const r of r3.data) nAlunos.set(r.disciplina_id, (nAlunos.get(r.disciplina_id) ?? 0) + 1);
+
+      $("vazio").hidden = lista.length > 0;
+      $("lista").innerHTML = lista.map((d) => `
+        <tr data-id="${d.id}">
+          <td class="muted">${d.ordem}</td>
+          <td><strong>${esc(d.nome)}</strong></td>
+          <td>${nAulas.get(d.id) ?? 0}</td>
+          <td>${nAlunos.get(d.id) ?? 0}</td>
+          <td>${d.ativo ? '<span class="badge badge--green">Em uso</span>' : '<span class="badge badge--off">Fora de uso</span>'}</td>
+        </tr>`).join("");
+    }
+
+    function abrir(d = null) {
+      editId = d?.id ?? null;
+      form.reset();
+      fillForm(form, d ?? { ativo: true, ordem: lista.length + 1 });
+      $("modal-title").textContent = d ? "Editar disciplina" : "Nova disciplina";
+      $("apagar").hidden = !d;
+      modal.showModal();
+      $("f-nome").focus();
+    }
+
+    $("lista").addEventListener("click", (e) => {
+      const tr = e.target.closest("tr[data-id]");
+      if (tr) abrir(lista.find((d) => d.id === tr.dataset.id));
+    });
+    $("novo").addEventListener("click", () => abrir());
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const dados = formData(form);
+      if (!dados.nome) return toast("O nome é obrigatório.", true);
+      dados.ordem = Number(dados.ordem ?? 0);
+      $("guardar").disabled = true;
+      const { error } = editId
+        ? await sb.from("disciplinas").update(dados).eq("id", editId)
+        : await sb.from("disciplinas").insert(dados);
+      $("guardar").disabled = false;
+      if (failed(error, "Não foi possível guardar")) return;
+      modal.close();
+      toast("Guardado.");
+      carregar();
+    });
+
+    $("apagar").addEventListener("click", async () => {
+      const d = lista.find((x) => x.id === editId);
+      if (!confirm(`Apagar "${d.nome}"?\n\nAs aulas ficam sem disciplina e os alunos perdem esta disciplina. Se já não é dada, é preferível desmarcar "Disciplina em uso".`)) return;
+      const { error } = await sb.from("disciplinas").delete().eq("id", editId);
+      if (failed(error, "Não foi possível apagar")) return;
+      modal.close();
+      toast("Disciplina apagada.");
+      carregar();
+    });
+
+    carregar();
+  </script>
+</body>
+</html>
