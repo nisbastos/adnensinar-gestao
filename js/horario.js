@@ -244,13 +244,13 @@ function render() {
                title="${tooltip}">
             ${apoio
               ? `<strong>${quando}</strong>
-                 ${p ? `<span class="lesson__time">${esc(profCurto(p))}</span>` : ""}
+                 ${p ? `<span class="lesson__prof">${esc(profCurto(p))}</span>` : ""}
                  ${outra ? `<span class="lesson__tag">${esc(a.categoria)}</span>` : ""}
                  ${nomes.length ? `<div class="lesson__students">${nomes.map(esc).join(", ")}</div>` : ""}
                  <span class="lesson__count">${nomes.length} ${nomes.length === 1 ? "aluno" : "alunos"}</span>`
               : `<strong>${esc(titulo)}</strong>
-                 ${nomes.length ? `<span class="lesson__students">${nomes.map(esc).join(", ")}</span>` : ""}
                  ${p ? `<span class="lesson__prof">${esc(profCurto(p))}</span>` : ""}
+                 ${nomes.length ? `<span class="lesson__students">${nomes.map(esc).join(", ")}</span>` : ""}
                  <span class="lesson__time">${quando}</span>
                  ${outra ? `<span class="lesson__tag">${esc(a.categoria)}</span>` : ""}`}
           </div>`;

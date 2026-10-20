@@ -53,6 +53,12 @@ async function carregar() {
   render();
 }
 
+/** "Maria Inês Costa Silva" → "Maria Silva" (o nome completo fica na ficha e ao passar o rato). */
+const nomeCurto = (nome) => {
+  const w = String(nome ?? "").trim().split(/\s+/);
+  return w.length > 2 ? `${w[0]} ${w[w.length - 1]}` : w.join(" ");
+};
+
 const nomesDisc = (alunoId) =>
   disciplinas.filter((d) => discPorAluno.get(alunoId)?.has(d.id)).map((d) => d.nome).join(", ");
 
@@ -82,7 +88,7 @@ function render() {
         : a.autoriza_saida ? `<span class="badge badge--green">Sim</span>` : `<span class="badge badge--pink">Não</span>`;
       return `
         <tr data-id="${a.id}">
-          <td class="nowrap"><strong>${esc(a.nome)}</strong>${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
+          <td class="col-nome" title="${esc(a.nome)}"><strong>${esc(nomeCurto(a.nome))}</strong>${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
           <td class="nowrap">${esc(a.ano_escolar) || vazio}</td>
           <td class="small">${esc(a.telemovel_aluno) || vazio}</td>
           <td>${esc(a.encarregado_nome) || vazio}</td>

@@ -21,7 +21,7 @@ insert into public.disciplinas (nome, ordem) values
   ('MACS', 3),
   ('História', 4),
   ('Físico-Química', 5),
-  ('Biologia', 6),
+  ('Biologia e Geologia', 6),
   ('Geometria Descritiva', 7)
 on conflict (nome) do nothing;
 

@@ -309,6 +309,10 @@ table.table {
 .table tbody tr:hover { background: var(--c-brand-1-soft); }
 .table tbody tr:last-child td { border-bottom: 0; }
 
+.table--compact th, .table--compact td { padding: 10px 10px; }
+.table--compact td { overflow-wrap: anywhere; }
+.table--compact .col-nome { min-width: 120px; max-width: 170px; }
+
 .muted { color: var(--c-mid); }
 .nowrap { white-space: nowrap; }
 .small { font-size: 13px; }
@@ -578,8 +582,8 @@ table.table {
 .lesson .lesson__time { display: block; }
 .lesson .lesson__time b { font-weight: 600; }
 .lesson { line-height: 1.25; }
-.lesson--exp .lesson__students { opacity: 1; font-weight: 600; margin-top: 1px; }
-.lesson--exp .lesson__prof { font-weight: 500; }
+.lesson .lesson__prof { display: block; font-weight: 700; }
+.lesson--exp .lesson__students { opacity: .9; font-weight: 400; }
 .lesson--exp .lesson__time { font-size: 11px; }
 .lesson--exp > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
 .lesson__count {
