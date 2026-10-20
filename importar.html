@@ -14,7 +14,7 @@
 <body>
   <main class="page">
     <div class="page-head">
-      <h1>Importar alunos</h1>
+      <h1>Importar</h1>
     </div>
 
     <section class="card" style="padding:22px; max-width:760px">
@@ -55,7 +55,37 @@
         <button class="btn btn--ghost" id="cancelar">Cancelar</button>
       </div>
     </section>
-  </main>
+      <section class="card" style="padding:22px; max-width:760px; margin-top:20px">
+      <h2 style="font-size:22px; margin-bottom:6px">Horário</h2>
+      <p style="margin-top:0">
+        Importa o ficheiro <strong>horarios-importar.json</strong> (preparado a partir dos documentos de horários da Drive).
+        Importa primeiro os alunos, para que os nomes do horário fiquem ligados às fichas.
+      </p>
+      <div class="field">
+        <label for="ficheiro-horario">Ficheiro JSON</label>
+        <input class="input" id="ficheiro-horario" type="file" accept=".json,application/json" />
+      </div>
+      <p class="small muted">
+        Salas e professores em falta são criados. Aulas iguais (mesmo dia, hora, sala e categoria) não são duplicadas.
+        Nomes de alunos que não dê para associar com certeza ficam nas notas da aula, para associares depois.
+      </p>
+    </section>
+
+    <section id="preview-horario" hidden style="margin-top:20px">
+      <p id="resumo-horario"></p>
+      <div class="card table-wrap">
+        <table class="table">
+          <thead><tr><th>Dia</th><th>Hora</th><th>Sala</th><th>Aula</th><th>Alunos associados</th><th>Por associar</th></tr></thead>
+          <tbody id="linhas-horario"></tbody>
+        </table>
+      </div>
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn" id="confirmar-horario">Importar horário</button>
+        <button class="btn btn--ghost" id="cancelar-horario">Cancelar</button>
+      </div>
+    </section>
+
+</main>
 
   <script type="module" src="js/importar.js"></script>
 </body>

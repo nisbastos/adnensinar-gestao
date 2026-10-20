@@ -1,4 +1,4 @@
-import { sb, requireAuth, esc, toast, failed, norm, ANOS } from "./app.js";
+import { sb, requireAuth, esc, toast, failed, norm, ANOS, DIAS_CURTOS, CORES } from "./app.js";
 
 await requireAuth();
 
@@ -169,5 +169,166 @@ $("confirmar").addEventListener("click", async () => {
   else {
     toast(`${ok} alunos importados.`);
     setTimeout(() => location.assign("alunos.html"), 1200);
+  }
+});
+
+
+// ==========================================================================
+// Importação do horário (JSON preparado a partir dos documentos da Drive)
+// ==========================================================================
+
+
+const ALCUNHAS = { "ze": "jose", "zé": "jose" };
+
+/** Associa um nome curto ("Gui Novais", "Francisca 7", "M. Miguel") a um aluno ativo, se for inequívoco. */
+function associar(curto, lista) {
+  const partes = norm(curto).replace(/\./g, ". ").split(/\s+/).filter(Boolean);
+  const ano = partes.find((t) => /^\d{1,2}$/.test(t));
+  const palavras = partes.filter((t) => !/^\d{1,2}$/.test(t)).map((t) => ALCUNHAS[t] ?? t);
+  if (!palavras.length) return null;
+  const encaixa = (token, palavra) => token.endsWith(".") ? palavra.startsWith(token.slice(0, -1)) : palavra.startsWith(token);
+
+  const candidatos = lista.filter((a) => {
+    const w = norm(a.nome).split(/\s+/);
+    if (!encaixa(palavras[0], w[0])) return false;
+    let i = 1;
+    for (const t of palavras.slice(1)) {
+      while (i < w.length && !encaixa(t, w[i])) i++;
+      if (i >= w.length) return false;
+      i++;
+    }
+    if (ano) {
+      const n = (a.ano_turma ?? a.ano_escolar ?? "").match(/\d{1,2}/)?.[0];
+      if (n !== ano) return false;
+    }
+    return true;
+  });
+  return candidatos.length === 1 ? candidatos[0] : null;
+}
+
+let planoHorario = null;
+
+$("ficheiro-horario").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  let dados;
+  try { dados = JSON.parse(await f.text()); } catch { return toast("O ficheiro não é um JSON válido.", true); }
+  if (dados.formato !== "adn-horario-v1") return toast("Este ficheiro não é um horário do ADN Ensinar.", true);
+
+  const [ra, rs, rp, rh] = await Promise.all([
+    sb.from("alunos").select("id, nome, ano_escolar, ano_turma, ativo"),
+    sb.from("salas").select("*"),
+    sb.from("professores").select("*"),
+    sb.from("horario").select("dia_semana, hora_inicio, sala_id, categoria"),
+  ]);
+  if (failed(ra.error, "Erro a ler alunos") || failed(rs.error, "Erro a ler salas") || failed(rp.error, "Erro a ler professores") || failed(rh.error, "Erro a ler horário")) return;
+
+  const ativos = ra.data.filter((a) => a.ativo);
+  const salaExistente = (nome) => rs.data.find((s) => norm(s.nome) === norm(nome) || norm(s.nome) === norm("Sala " + nome));
+  const profExistente = (nome) => {
+    const m = rp.data.filter((p) => norm(p.nome).split(/\s+/)[0] === norm(nome).split(/\s+/)[0]);
+    return m.length === 1 ? m[0] : null;
+  };
+
+  const aulas = dados.aulas.map((a) => {
+    const assoc = [], falta = [];
+    for (const n of a.alunos) {
+      const al = associar(n, ativos);
+      al ? assoc.push(al) : falta.push(n);
+    }
+    return { ...a, assoc, falta };
+  });
+
+  planoHorario = {
+    dados, aulas, existentes: rh.data,
+    salasNovas: dados.salas.filter((s) => !salaExistente(s.nome)),
+    profsNovos: dados.professores.filter((p) => !profExistente(p)),
+    salaExistente, profExistente,
+  };
+
+  const totalNomes = aulas.reduce((n, a) => n + a.alunos.length, 0);
+  const totalFalta = aulas.reduce((n, a) => n + a.falta.length, 0);
+  $("resumo-horario").innerHTML =
+    `<strong>${aulas.length}</strong> aulas. ` +
+    `Salas novas: <strong>${planoHorario.salasNovas.map((s) => esc(s.nome)).join(", ") || "nenhuma"}</strong>. ` +
+    `Professores novos: <strong>${planoHorario.profsNovos.map(esc).join(", ") || "nenhum"}</strong>. ` +
+    `Alunos associados: <strong>${totalNomes - totalFalta}</strong> de ${totalNomes}` +
+    (totalFalta ? ` — os restantes ficam nas notas da aula.` : ".");
+
+  $("linhas-horario").innerHTML = aulas
+    .sort((x, y) => x.dia - y.dia || x.inicio.localeCompare(y.inicio))
+    .map((a) => `
+      <tr>
+        <td>${DIAS_CURTOS[a.dia]}</td>
+        <td class="small">${a.inicio}–${a.fim}</td>
+        <td>${esc(a.sala)}</td>
+        <td class="small">${esc(a.disciplina ?? a.categoria)}${a.professor ? " · " + esc(a.professor) : ""}</td>
+        <td class="small">${a.assoc.map((x) => esc(x.nome)).join(", ") || '<span class="muted">—</span>'}</td>
+        <td class="small">${a.falta.map((x) => `<span class="badge badge--pink">${esc(x)}</span>`).join(" ") || '<span class="muted">—</span>'}</td>
+      </tr>`).join("");
+  $("preview-horario").hidden = false;
+});
+
+$("cancelar-horario").addEventListener("click", () => {
+  planoHorario = null;
+  $("preview-horario").hidden = true;
+  $("ficheiro-horario").value = "";
+});
+
+$("confirmar-horario").addEventListener("click", async () => {
+  if (!planoHorario) return;
+  const btn = $("confirmar-horario");
+  btn.disabled = true;
+  btn.textContent = "A importar…";
+  try {
+    const p = planoHorario;
+
+    // 1) Salas e professores em falta
+    const salaId = new Map();
+    for (const s of p.dados.salas) {
+      const ex = p.salaExistente(s.nome);
+      if (ex) { salaId.set(s.nome, ex.id); continue; }
+      const { data, error } = await sb.from("salas")
+        .insert({ nome: s.nome, tipo: s.tipo, ordem: p.dados.salas.indexOf(s) + 1 }).select("id").single();
+      if (failed(error, `Erro a criar a sala ${s.nome}`)) return;
+      salaId.set(s.nome, data.id);
+    }
+    const profId = new Map();
+    let k = 0;
+    for (const nome of p.dados.professores) {
+      const ex = p.profExistente(nome);
+      if (ex) { profId.set(nome, ex.id); continue; }
+      const { data, error } = await sb.from("professores")
+        .insert({ nome, cor: CORES[k++ % CORES.length] }).select("id").single();
+      if (failed(error, `Erro a criar o professor ${nome}`)) return;
+      profId.set(nome, data.id);
+    }
+
+    // 2) Aulas (sem duplicar)
+    let criadas = 0, saltadas = 0;
+    for (const a of p.aulas) {
+      const sid = salaId.get(a.sala) ?? null;
+      const dup = p.existentes.some((h) =>
+        h.dia_semana === a.dia && String(h.hora_inicio).slice(0, 5) === a.inicio && h.sala_id === sid && h.categoria === a.categoria);
+      if (dup) { saltadas++; continue; }
+
+      const notas = [a.notas, a.falta.length ? `Alunos por associar: ${a.falta.join(", ")}` : null].filter(Boolean).join("\n") || null;
+      const { data, error } = await sb.from("horario").insert({
+        dia_semana: a.dia, hora_inicio: a.inicio, hora_fim: a.fim, sala_id: sid,
+        categoria: a.categoria, disciplina: a.disciplina, professor_id: a.professor ? profId.get(a.professor) : null, notas,
+      }).select("id").single();
+      if (failed(error, "Erro a criar aula")) return;
+      const ids = [...new Set(a.assoc.map((x) => x.id))];
+      if (ids.length) {
+        const { error: e2 } = await sb.from("horario_alunos").insert(ids.map((aluno_id) => ({ horario_id: data.id, aluno_id })));
+        if (failed(e2, "Erro a associar alunos")) return;
+      }
+      criadas++;
+    }
+    toast(`${criadas} aulas importadas${saltadas ? `, ${saltadas} já existiam` : ""}.`);
+    setTimeout(() => location.assign("horario.html"), 1400);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Importar horário";
   }
 });

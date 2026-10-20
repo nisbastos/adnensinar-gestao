@@ -4,8 +4,8 @@ await requireAuth();
 
 // ---------- Configuração do horário do centro ----------
 const DIAS_VISIVEIS = [1, 2, 3, 4, 5]; // segunda a sexta (sábado e domingo fechado)
-const INICIO = 9 * 60;   // 09:00
-const FIM = 19 * 60;     // 19:00 (o centro fecha às 18:30)
+let INICIO = 9 * 60;     // 09:00 (alarga se houver aulas mais cedo)
+let FIM = 19 * 60;       // 19:00 (alarga se houver aulas mais tarde)
 const SLOT_MIN = 30;     // cada linha = 30 min
 let SLOT_PX = 28;        // altura de cada linha (reduz ao imprimir)
 
@@ -147,7 +147,17 @@ function grupos(visiveis) {
   });
 }
 
+function ajustarIntervalo() {
+  INICIO = 9 * 60;
+  FIM = 19 * 60;
+  for (const a of aulas) {
+    INICIO = Math.min(INICIO, Math.floor(toMin(a.hora_inicio) / 60) * 60);
+    FIM = Math.max(FIM, Math.ceil(toMin(a.hora_fim) / 60) * 60);
+  }
+}
+
 function render() {
+  ajustarIntervalo();
   const el = $("schedule");
   const gs = grupos(filtradas());
   const total = gs.reduce((n, g) => n + g.cols.length, 0);
