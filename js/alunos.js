@@ -1,4 +1,4 @@
-import { sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, ANOS, DIAS_CURTOS, hhmm } from "./app.js";
+import { ordenar, ligarOrdenacao, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, ANOS, DIAS_CURTOS, hhmm } from "./app.js";
 
 await requireAuth();
 
@@ -15,6 +15,19 @@ let aulasPorAluno = new Map(); // aluno_id → [{dia, inicio, fim, disciplina}]
 let disciplinas = [];
 let discPorAluno = new Map(); // aluno_id → Set(disciplina_id)
 let editId = null;
+let verTodas = false;
+const revelados = new Set();
+const estadoOrdem = { chave: "nome", dir: "asc" };
+const CHAVES = {
+  nome: (a) => a.nome,
+  ano: (a) => Number((a.ano_escolar ?? "").match(/\d+/)?.[0] ?? NaN) || null,
+  tel: (a) => a.telemovel_aluno,
+  ee: (a) => a.encarregado_nome,
+  eetel: (a) => a.encarregado_telefone ?? a.encarregado_email,
+  einst: (a) => a.email_institucional,
+  saida: (a) => a.autoriza_saida,
+  recente: (a) => a.data_inscricao ?? a.created_at,
+};
 
 async function carregar() {
   const [{ data: a, error: e1 }, { data: h, error: e2 }, { data: d, error: e3 }, { data: ad, error: e4 }] = await Promise.all([
@@ -43,11 +56,6 @@ async function carregar() {
 const nomesDisc = (alunoId) =>
   disciplinas.filter((d) => discPorAluno.get(alunoId)?.has(d.id)).map((d) => d.nome).join(", ");
 
-function servicoBadge(s) {
-  if (!s) return `<span class="muted">—</span>`;
-  const cls = s === "Explicação" ? "badge--yellow" : s === "Apoio ao Estudo" ? "badge--green" : "badge--pink";
-  return `<span class="badge ${cls}">${esc(s)}</span>`;
-}
 
 function render() {
   const q = norm($("search").value);
@@ -62,20 +70,26 @@ function render() {
   $("contagem").textContent = `${filtrados.length} ${filtrados.length === 1 ? "aluno" : "alunos"}`;
   $("vazio").hidden = filtrados.length > 0;
 
-  lista.innerHTML = filtrados
+  const vazio = `<span class="muted">—</span>`;
+  lista.innerHTML = ordenar(filtrados, estadoOrdem, CHAVES)
     .map((a) => {
-      const n = aulasPorAluno.get(a.id)?.length ?? 0;
-      const contacto = [a.encarregado_telefone, a.encarregado_email].filter(Boolean).map(esc).join("<br>");
+      const contactoEE = [a.encarregado_telefone, a.encarregado_email].filter(Boolean).map(esc).join("<br>");
+      const ver = verTodas || revelados.has(a.id);
+      const pw = a.password_institucional
+        ? `<span class="pw-cell">${ver ? esc(a.password_institucional) : "••••••"}<button type="button" data-pw="${a.id}">${ver ? "esconder" : "ver"}</button></span>`
+        : vazio;
+      const saida = a.autoriza_saida == null ? vazio
+        : a.autoriza_saida ? `<span class="badge badge--green">Sim</span>` : `<span class="badge badge--pink">Não</span>`;
       return `
         <tr data-id="${a.id}">
-          <td><strong>${esc(a.nome)}</strong>${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
-          <td>${esc(a.ano_escolar) || `<span class="muted">—</span>`}</td>
-          <td>${servicoBadge(a.servico)}</td>
-          <td class="small">${esc(nomesDisc(a.id)) || `<span class="muted">—</span>`}</td>
-          <td>${esc(a.escola) || `<span class="muted">—</span>`}</td>
-          <td>${esc(a.encarregado_nome) || `<span class="muted">—</span>`}</td>
-          <td class="small">${contacto || `<span class="muted">—</span>`}</td>
-          <td>${n || `<span class="muted">0</span>`}</td>
+          <td class="nowrap"><strong>${esc(a.nome)}</strong>${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
+          <td class="nowrap">${esc(a.ano_escolar) || vazio}</td>
+          <td class="small">${esc(a.telemovel_aluno) || vazio}</td>
+          <td>${esc(a.encarregado_nome) || vazio}</td>
+          <td class="small">${contactoEE || vazio}</td>
+          <td class="small">${esc(a.email_institucional) || vazio}</td>
+          <td>${pw}</td>
+          <td>${saida}</td>
         </tr>`;
     })
     .join("");
@@ -108,6 +122,12 @@ function abrir(aluno = null) {
 }
 
 lista.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-pw]");
+  if (b) {
+    e.stopPropagation();
+    revelados.has(b.dataset.pw) ? revelados.delete(b.dataset.pw) : revelados.add(b.dataset.pw);
+    return render();
+  }
   const tr = e.target.closest("tr[data-id]");
   if (tr) abrir(alunos.find((a) => a.id === tr.dataset.id));
 });
@@ -117,6 +137,16 @@ $("pw-toggle").addEventListener("click", () => {
   i.type = i.type === "password" ? "text" : "password";
   $("pw-toggle").textContent = i.type === "password" ? "Mostrar" : "Esconder";
 });
+
+$("pw-todas").addEventListener("click", (e) => {
+  e.stopPropagation();
+  verTodas = !verTodas;
+  revelados.clear();
+  $("pw-todas").textContent = verTodas ? "esconder todas" : "ver todas";
+  render();
+});
+
+ligarOrdenacao(document.querySelector("table.table"), $("ordem"), estadoOrdem, render);
 
 $("novo").addEventListener("click", () => abrir());
 $("search").addEventListener("input", render);

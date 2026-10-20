@@ -16,6 +16,14 @@
     <div class="page-head">
       <h1>Disciplinas</h1>
       <div class="toolbar">
+        <select class="select" id="ordem" aria-label="Ordenar">
+          <option value="" hidden>Ordenar…</option>
+          <option value="ordem:asc">Ordem definida</option>
+          <option value="nome:asc">Nome (A–Z)</option>
+          <option value="nome:desc">Nome (Z–A)</option>
+          <option value="recente:desc">Mais recentes</option>
+          <option value="recente:asc">Mais antigos</option>
+        </select>
         <button class="btn" id="novo">+ Nova disciplina</button>
       </div>
     </div>
@@ -23,7 +31,7 @@
     <div class="card table-wrap">
       <table class="table">
         <thead>
-          <tr><th>Ordem</th><th>Nome</th><th>Aulas/semana</th><th>Alunos</th><th>Estado</th></tr>
+          <tr><th data-sort="ordem">Ordem</th><th data-sort="nome">Nome</th><th data-sort="profs">Professores</th><th data-sort="aulas" data-dir="desc">Aulas/semana</th><th data-sort="alunos" data-dir="desc">Alunos</th><th data-sort="estado" data-dir="desc">Estado</th></tr>
         </thead>
         <tbody id="lista"></tbody>
       </table>
@@ -59,7 +67,7 @@
   </dialog>
 
   <script type="module">
-    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal } from "./js/app.js";
+    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal, ordenar, ligarOrdenacao } from "./js/app.js";
 
     await requireAuth();
 
@@ -69,26 +77,47 @@
     wireModal(modal);
 
     let lista = [];
-    let nAulas = new Map(), nAlunos = new Map();
+    let nAulas = new Map(), nAlunos = new Map(), profsPorDisc = new Map();
     let editId = null;
 
     async function carregar() {
-      const [r1, r2, r3] = await Promise.all([
+      const [r1, r2, r3, r4] = await Promise.all([
         sb.from("disciplinas").select("*").order("ordem").order("nome"),
         sb.from("horario").select("disciplina_id"),
         sb.from("aluno_disciplinas").select("disciplina_id"),
+        sb.from("professor_disciplinas").select("disciplina_id, professores(nome, ativo)"),
       ]);
-      if (failed(r1.error, "Erro a carregar disciplinas") || failed(r2.error, "Erro a carregar horário") || failed(r3.error, "Erro a carregar alunos")) return;
+      if (failed(r1.error, "Erro a carregar disciplinas") || failed(r2.error, "Erro a carregar horário") || failed(r3.error, "Erro a carregar alunos") || failed(r4.error, "Erro a carregar professores")) return;
+      profsPorDisc = new Map();
+      for (const r of r4.data) {
+        if (!r.professores?.ativo) continue;
+        const primeiro = String(r.professores.nome).trim().split(/\s+/)[0];
+        if (!profsPorDisc.has(r.disciplina_id)) profsPorDisc.set(r.disciplina_id, []);
+        profsPorDisc.get(r.disciplina_id).push(`Prof. ${primeiro}`);
+      }
       lista = r1.data;
       nAulas = new Map(); nAlunos = new Map();
       for (const r of r2.data) nAulas.set(r.disciplina_id, (nAulas.get(r.disciplina_id) ?? 0) + 1);
       for (const r of r3.data) nAlunos.set(r.disciplina_id, (nAlunos.get(r.disciplina_id) ?? 0) + 1);
 
+      render();
+    }
+
+    const estadoOrdem = { chave: "ordem", dir: "asc" };
+    const nomesProfs = (d) => (profsPorDisc.get(d.id) ?? []).sort((a, b) => a.localeCompare(b, "pt")).join(", ");
+    const CHAVES = {
+      ordem: (d) => d.ordem, nome: (d) => d.nome, profs: nomesProfs,
+      aulas: (d) => nAulas.get(d.id) ?? 0, alunos: (d) => nAlunos.get(d.id) ?? 0,
+      estado: (d) => d.ativo, recente: (d) => d.created_at,
+    };
+
+    function render() {
       $("vazio").hidden = lista.length > 0;
-      $("lista").innerHTML = lista.map((d) => `
+      $("lista").innerHTML = ordenar(lista, estadoOrdem, CHAVES).map((d) => `
         <tr data-id="${d.id}">
           <td class="muted">${d.ordem}</td>
           <td><strong>${esc(d.nome)}</strong></td>
+          <td class="small">${esc(nomesProfs(d)) || '<span class="muted">—</span>'}</td>
           <td>${nAulas.get(d.id) ?? 0}</td>
           <td>${nAlunos.get(d.id) ?? 0}</td>
           <td>${d.ativo ? '<span class="badge badge--green">Em uso</span>' : '<span class="badge badge--off">Fora de uso</span>'}</td>
@@ -110,6 +139,7 @@
       if (tr) abrir(lista.find((d) => d.id === tr.dataset.id));
     });
     $("novo").addEventListener("click", () => abrir());
+    ligarOrdenacao(document.querySelector("table.table"), $("ordem"), estadoOrdem, render);
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();

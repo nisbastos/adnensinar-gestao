@@ -16,6 +16,14 @@
     <div class="page-head">
       <h1>Salas</h1>
       <div class="toolbar">
+        <select class="select" id="ordem" aria-label="Ordenar">
+          <option value="" hidden>Ordenar…</option>
+          <option value="ordem:asc">Ordem definida</option>
+          <option value="nome:asc">Nome (A–Z)</option>
+          <option value="nome:desc">Nome (Z–A)</option>
+          <option value="recente:desc">Mais recentes</option>
+          <option value="recente:asc">Mais antigos</option>
+        </select>
         <button class="btn" id="novo">+ Nova sala</button>
       </div>
     </div>
@@ -23,7 +31,7 @@
     <div class="card table-wrap">
       <table class="table">
         <thead>
-          <tr><th>Ordem</th><th>Nome</th><th>Tipo</th><th>Aulas/semana</th><th>Estado</th></tr>
+          <tr><th data-sort="ordem">Ordem</th><th data-sort="nome">Nome</th><th data-sort="tipo">Tipo</th><th data-sort="aulas" data-dir="desc">Aulas/semana</th><th data-sort="estado" data-dir="desc">Estado</th></tr>
         </thead>
         <tbody id="lista"></tbody>
       </table>
@@ -67,7 +75,7 @@
   </dialog>
 
   <script type="module">
-    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal } from "./js/app.js";
+    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal, ordenar, ligarOrdenacao } from "./js/app.js";
 
     await requireAuth();
 
@@ -90,8 +98,18 @@
       contagem = new Map();
       for (const r of h) contagem.set(r.sala_id, (contagem.get(r.sala_id) ?? 0) + 1);
 
+      render();
+    }
+
+    const estadoOrdem = { chave: "ordem", dir: "asc" };
+    const CHAVES = {
+      ordem: (s) => s.ordem, nome: (s) => s.nome, tipo: (s) => s.tipo,
+      aulas: (s) => contagem.get(s.id) ?? 0, estado: (s) => s.ativo, recente: (s) => s.created_at,
+    };
+
+    function render() {
       $("vazio").hidden = salas.length > 0;
-      $("lista").innerHTML = salas.map((s) => `
+      $("lista").innerHTML = ordenar(salas, estadoOrdem, CHAVES).map((s) => `
         <tr data-id="${s.id}">
           <td class="muted">${s.ordem}</td>
           <td><strong>${esc(s.nome)}</strong></td>
@@ -121,6 +139,7 @@
       if (tr) abrir(salas.find((s) => s.id === tr.dataset.id));
     });
     $("novo").addEventListener("click", () => abrir());
+    ligarOrdenacao(document.querySelector("table.table"), $("ordem"), estadoOrdem, render);
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();

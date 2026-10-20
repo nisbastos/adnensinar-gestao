@@ -30,6 +30,11 @@ export const CORES = ["#c1dbdc", "#cee3d1", "#ffe7a9", "#fbd1c1", "#d9d2ec", "#f
 const NAV = [
   { href: "horario.html", label: "Horário" },
   { href: "alunos.html", label: "Alunos" },
+  { href: "professores.html", label: "Configuração", grupo: "config" },
+];
+
+// Páginas dentro de "Configuração" (mostradas como separadores secundários)
+const CONFIG = [
   { href: "professores.html", label: "Professores" },
   { href: "salas.html", label: "Salas" },
   { href: "disciplinas.html", label: "Disciplinas" },
@@ -63,7 +68,10 @@ function renderHeader(user) {
         </span>
       </a>
       <nav class="nav" aria-label="Navegação principal">
-        ${NAV.map((n) => `<a href="${n.href}" ${n.href === here ? 'aria-current="page"' : ""}>${n.label}</a>`).join("")}
+        ${NAV.map((n) => {
+          const ativo = n.grupo === "config" ? CONFIG.some((c) => c.href === here) : n.href === here;
+          return `<a href="${n.href}" ${ativo ? 'aria-current="page"' : ""}>${n.label}</a>`;
+        }).join("")}
       </nav>
       <div class="header-user">
         <span class="header-user__email">${esc(user.email)}</span>
@@ -71,6 +79,14 @@ function renderHeader(user) {
       </div>
     </div>`;
   document.body.prepend(header);
+
+  if (CONFIG.some((c) => c.href === here)) {
+    const sub = document.createElement("nav");
+    sub.className = "subnav";
+    sub.setAttribute("aria-label", "Configuração");
+    sub.innerHTML = CONFIG.map((c) => `<a href="${c.href}" ${c.href === here ? 'aria-current="page"' : ""}>${c.label}</a>`).join("");
+    document.querySelector("main.page")?.prepend(sub);
+  }
   header.querySelector("#logout").addEventListener("click", async () => {
     await sb.auth.signOut();
     window.location.replace("index.html");
@@ -151,4 +167,59 @@ export function wireModal(dialog) {
   dialog.addEventListener("click", (e) => {
     if (e.target === dialog) dialog.close();
   });
+}
+
+
+// Ordenação de tabelas -------------------------------------------------------
+
+const coll = new Intl.Collator("pt", { sensitivity: "base", numeric: true });
+
+/** Ordena uma lista pela chave escolhida. `chaves` = { chave: (linha) => valor }. */
+export function ordenar(lista, estado, chaves) {
+  const f = chaves[estado.chave];
+  if (!f) return lista;
+  const dir = estado.dir === "desc" ? -1 : 1;
+  return [...lista].sort((a, b) => {
+    const x = f(a), y = f(b);
+    const vx = x == null || x === "", vy = y == null || y === "";
+    if (vx || vy) return vx === vy ? 0 : vx ? 1 : -1; // vazios sempre no fim
+    if (typeof x === "number" && typeof y === "number") return (x - y) * dir;
+    if (typeof x === "boolean") return (Number(x) - Number(y)) * dir;
+    return coll.compare(String(x), String(y)) * dir;
+  });
+}
+
+/**
+ * Liga a ordenação a uma tabela: clicar num <th data-sort="chave"> ordena por essa coluna
+ * (2.º clique inverte) e um <select> opcional com valores "chave:asc|desc" (ex.: "recente:desc").
+ */
+export function ligarOrdenacao(tabela, select, estado, aoMudar) {
+  const marcar = () => {
+    tabela.querySelectorAll("th[data-sort]").forEach((th) => {
+      th.setAttribute("aria-sort", th.dataset.sort === estado.chave ? (estado.dir === "asc" ? "ascending" : "descending") : "none");
+    });
+    if (select) {
+      const v = `${estado.chave}:${estado.dir}`;
+      select.value = [...select.options].some((o) => o.value === v) ? v : "";
+    }
+  };
+  tabela.querySelectorAll("th[data-sort]").forEach((th) => {
+    th.tabIndex = 0;
+    const clicar = () => {
+      if (estado.chave === th.dataset.sort) estado.dir = estado.dir === "asc" ? "desc" : "asc";
+      else { estado.chave = th.dataset.sort; estado.dir = th.dataset.dir ?? "asc"; }
+      marcar();
+      aoMudar();
+    };
+    th.addEventListener("click", clicar);
+    th.addEventListener("keydown", (e) => { if (e.key === "Enter") clicar(); });
+  });
+  select?.addEventListener("change", () => {
+    if (!select.value) return;
+    const [chave, dir] = select.value.split(":");
+    Object.assign(estado, { chave, dir });
+    marcar();
+    aoMudar();
+  });
+  marcar();
 }

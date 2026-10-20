@@ -16,6 +16,13 @@
     <div class="page-head">
       <h1>Professores</h1>
       <div class="toolbar">
+        <select class="select" id="ordem" aria-label="Ordenar">
+          <option value="" hidden>Ordenar…</option>
+          <option value="nome:asc">Nome (A–Z)</option>
+          <option value="nome:desc">Nome (Z–A)</option>
+          <option value="recente:desc">Mais recentes</option>
+          <option value="recente:asc">Mais antigos</option>
+        </select>
         <button class="btn" id="novo">+ Novo professor</button>
       </div>
     </div>
@@ -23,7 +30,7 @@
     <div class="card table-wrap">
       <table class="table">
         <thead>
-          <tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Aulas/semana</th><th>Estado</th></tr>
+          <tr><th data-sort="nome">Nome</th><th data-sort="disc">Disciplinas lecionadas</th><th data-sort="email">Email</th><th data-sort="tel">Telefone</th><th data-sort="estado" data-dir="desc">Estado</th></tr>
         </thead>
         <tbody id="lista"></tbody>
       </table>
@@ -52,6 +59,10 @@
             <input class="input" id="f-tel" name="telefone" type="tel" />
           </div>
           <div class="field span-2">
+            <label>Disciplinas lecionadas</label>
+            <div class="chips" id="f-disc"></div>
+          </div>
+          <div class="field span-2">
             <label>Cor no horário</label>
             <div class="swatches" id="swatches"></div>
           </div>
@@ -69,7 +80,7 @@
   </dialog>
 
   <script type="module">
-    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal, CORES } from "./js/app.js";
+    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal, CORES, ordenar, ligarOrdenacao } from "./js/app.js";
 
     await requireAuth();
 
@@ -83,26 +94,49 @@
     ).join("");
 
     let profs = [];
-    let contagem = new Map();
+    let disciplinas = [];
+    let discPorProf = new Map(); // professor_id → Set(disciplina_id)
     let editId = null;
 
-    async function carregar() {
-      const [{ data: p, error: e1 }, { data: h, error: e2 }] = await Promise.all([
-        sb.from("professores").select("*").order("nome"),
-        sb.from("horario").select("professor_id"),
-      ]);
-      if (failed(e1, "Erro a carregar professores") || failed(e2, "Erro a carregar horário")) return;
-      profs = p;
-      contagem = new Map();
-      for (const r of h) contagem.set(r.professor_id, (contagem.get(r.professor_id) ?? 0) + 1);
+    const nomesDisc = (id) =>
+      disciplinas.filter((d) => discPorProf.get(id)?.has(d.id)).map((d) => d.nome).join(", ");
 
+    const estadoOrdem = { chave: "nome", dir: "asc" };
+    const CHAVES = {
+      nome: (p) => p.nome,
+      disc: (p) => nomesDisc(p.id),
+      email: (p) => p.email,
+      tel: (p) => p.telefone,
+      estado: (p) => p.ativo,
+      recente: (p) => p.created_at,
+    };
+
+    async function carregar() {
+      const [r1, r2, r3] = await Promise.all([
+        sb.from("professores").select("*"),
+        sb.from("disciplinas").select("*").order("ordem").order("nome"),
+        sb.from("professor_disciplinas").select("professor_id, disciplina_id"),
+      ]);
+      if (failed(r1.error, "Erro a carregar professores") || failed(r2.error, "Erro a carregar disciplinas") || failed(r3.error, "Erro a carregar disciplinas dos professores")) return;
+      profs = r1.data;
+      disciplinas = r2.data;
+      discPorProf = new Map();
+      for (const r of r3.data) {
+        if (!discPorProf.has(r.professor_id)) discPorProf.set(r.professor_id, new Set());
+        discPorProf.get(r.professor_id).add(r.disciplina_id);
+      }
+      render();
+    }
+
+    function render() {
+      const vazio = '<span class="muted">—</span>';
       $("vazio").hidden = profs.length > 0;
-      $("lista").innerHTML = profs.map((p) => `
+      $("lista").innerHTML = ordenar(profs, estadoOrdem, CHAVES).map((p) => `
         <tr data-id="${p.id}">
           <td><span class="dot" style="background:${esc(p.cor)}"></span><strong>${esc(p.nome)}</strong></td>
-          <td>${esc(p.email) || '<span class="muted">—</span>'}</td>
-          <td>${esc(p.telefone) || '<span class="muted">—</span>'}</td>
-          <td>${contagem.get(p.id) ?? 0}</td>
+          <td class="small">${esc(nomesDisc(p.id)) || vazio}</td>
+          <td>${esc(p.email) || vazio}</td>
+          <td>${esc(p.telefone) || vazio}</td>
           <td>${p.ativo ? '<span class="badge badge--green">Ativo</span>' : '<span class="badge badge--off">Inativo</span>'}</td>
         </tr>`).join("");
     }
@@ -110,7 +144,12 @@
     function abrir(p = null) {
       editId = p?.id ?? null;
       form.reset();
-      fillForm(form, p ?? { ativo: true, cor: CORES[contagem.size % CORES.length] });
+      fillForm(form, p ?? { ativo: true, cor: CORES[profs.length % CORES.length] });
+      const escolhidas = discPorProf.get(p?.id) ?? new Set();
+      $("f-disc").innerHTML = disciplinas
+        .filter((d) => d.ativo || escolhidas.has(d.id))
+        .map((d) => `<label class="chip"><input type="checkbox" data-multi="1" value="${d.id}" ${escolhidas.has(d.id) ? "checked" : ""} /><span>${esc(d.nome)}</span></label>`)
+        .join("") || '<span class="muted small">Sem disciplinas — cria-as em Configuração → Disciplinas.</span>';
       $("modal-title").textContent = p ? "Editar professor" : "Novo professor";
       $("apagar").hidden = !p;
       modal.showModal();
@@ -122,20 +161,36 @@
       if (tr) abrir(profs.find((p) => p.id === tr.dataset.id));
     });
     $("novo").addEventListener("click", () => abrir());
+    ligarOrdenacao(document.querySelector("table.table"), $("ordem"), estadoOrdem, render);
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const dados = formData(form);
       if (!dados.nome) return toast("O nome é obrigatório.", true);
+      const discIds = [...$("f-disc").querySelectorAll("input:checked")].map((i) => i.value);
       $("guardar").disabled = true;
-      const { error } = editId
-        ? await sb.from("professores").update(dados).eq("id", editId)
-        : await sb.from("professores").insert(dados);
-      $("guardar").disabled = false;
-      if (failed(error, "Não foi possível guardar")) return;
-      modal.close();
-      toast("Guardado.");
-      carregar();
+      try {
+        let id = editId;
+        if (id) {
+          const { error } = await sb.from("professores").update(dados).eq("id", id);
+          if (failed(error, "Não foi possível guardar")) return;
+          const { error: e2 } = await sb.from("professor_disciplinas").delete().eq("professor_id", id);
+          if (failed(e2, "Não foi possível atualizar as disciplinas")) return;
+        } else {
+          const { data, error } = await sb.from("professores").insert(dados).select("id").single();
+          if (failed(error, "Não foi possível guardar")) return;
+          id = data.id;
+        }
+        if (discIds.length) {
+          const { error } = await sb.from("professor_disciplinas").insert(discIds.map((disciplina_id) => ({ professor_id: id, disciplina_id })));
+          if (failed(error, "O professor foi guardado, mas houve um erro nas disciplinas")) return;
+        }
+        modal.close();
+        toast("Guardado.");
+        carregar();
+      } finally {
+        $("guardar").disabled = false;
+      }
     });
 
     $("apagar").addEventListener("click", async () => {

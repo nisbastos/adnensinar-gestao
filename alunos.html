@@ -17,7 +17,15 @@
       <h1>Alunos</h1>
       <div class="toolbar">
         <input class="input search" id="search" type="search" placeholder="Pesquisar nome, escola, NIF, encarregado…" />
-        <select class="select" id="filter-estado" style="width:auto">
+        <select class="select" id="ordem" aria-label="Ordenar">
+          <option value="" hidden>Ordenar…</option>
+          <option value="nome:asc">Nome (A–Z)</option>
+          <option value="nome:desc">Nome (Z–A)</option>
+          <option value="recente:desc">Inscrição mais recente</option>
+          <option value="recente:asc">Inscrição mais antiga</option>
+          <option value="ano:asc">Ano escolar</option>
+        </select>
+        <select class="select" id="filter-estado">
           <option value="ativos">Ativos</option>
           <option value="inativos">Inativos</option>
           <option value="todos">Todos</option>
@@ -33,14 +41,14 @@
       <table class="table">
         <thead>
           <tr>
-            <th>Nome</th>
-            <th>Ano</th>
-            <th>Serviço</th>
-            <th>Disciplinas</th>
-            <th>Escola</th>
-            <th>Encarregado de educação</th>
-            <th>Contacto</th>
-            <th>Aulas/semana</th>
+            <th data-sort="nome">Nome</th>
+            <th data-sort="ano">Ano</th>
+            <th data-sort="tel">Contacto do aluno</th>
+            <th data-sort="ee">Encarregado de educação</th>
+            <th data-sort="eetel">Contacto do EE</th>
+            <th data-sort="einst">Email inst.</th>
+            <th>Password inst. <button type="button" class="link-btn" id="pw-todas">ver todas</button></th>
+            <th data-sort="saida" data-dir="desc" title="Autoriza a saída das instalações">Pode sair</th>
           </tr>
         </thead>
         <tbody id="lista"></tbody>
