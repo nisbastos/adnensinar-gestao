@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Horário | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Horário semanal</h1>
+      <div class="toolbar">
+        <select class="select" id="filter-prof" style="width:auto">
+          <option value="">Todos os professores</option>
+        </select>
+        <input class="input search" id="filter-aluno" type="search" placeholder="Filtrar por aluno…" />
+        <button class="btn" id="nova">+ Nova aula</button>
+      </div>
+    </div>
+
+    <div class="day-tabs" id="day-tabs" role="group" aria-label="Dia"></div>
+
+    <div class="card">
+      <div class="schedule" id="schedule"></div>
+    </div>
+
+    <div class="legend" id="legend"></div>
+    <p class="muted small">Clica num espaço vazio para criar uma aula nesse dia e hora. As áreas tracejadas são horas em que o centro está fechado.</p>
+  </main>
+
+  <dialog class="modal" id="modal">
+    <form id="form" method="dialog" novalidate>
+      <div class="modal__head">
+        <h2 id="modal-title">Nova aula</h2>
+        <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="f-dia">Dia da semana *</label>
+            <select class="select" id="f-dia" name="dia_semana"></select>
+          </div>
+          <div class="field">
+            <label for="f-ini">Início *</label>
+            <input class="input" id="f-ini" name="hora_inicio" type="time" step="900" required />
+          </div>
+          <div class="field">
+            <label for="f-fim">Fim *</label>
+            <input class="input" id="f-fim" name="hora_fim" type="time" step="900" required />
+          </div>
+          <div class="field">
+            <label for="f-prof">Professor</label>
+            <select class="select" id="f-prof" name="professor_id"></select>
+          </div>
+          <div class="field">
+            <label for="f-cat">Categoria</label>
+            <select class="select" id="f-cat" name="categoria">
+              <option value="">—</option>
+              <option>Apoio ao Estudo</option>
+              <option>Explicação</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-disc">Disciplina</label>
+            <input class="input" id="f-disc" name="disciplina" placeholder="ex.: Matemática" />
+          </div>
+          <div class="field">
+            <label for="f-sala">Sala</label>
+            <input class="input" id="f-sala" name="sala" />
+          </div>
+          <div class="field span-2">
+            <label for="f-pick-search">Alunos <span class="muted" id="pick-count"></span></label>
+            <input class="input" id="f-pick-search" type="search" placeholder="Pesquisar aluno…" data-multi="1" />
+            <div class="pick-list" id="pick-list"></div>
+          </div>
+          <div class="field span-2">
+            <label for="f-notas">Notas</label>
+            <textarea class="textarea" id="f-notas" name="notas"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--danger" id="apagar" hidden>Apagar</button>
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn" id="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/horario.js"></script>
+</body>
+</html>

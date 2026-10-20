@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Professores | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Professores</h1>
+      <div class="toolbar">
+        <button class="btn" id="novo">+ Novo professor</button>
+      </div>
+    </div>
+
+    <div class="card table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Aulas/semana</th><th>Estado</th></tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div class="empty" id="vazio" hidden>Ainda não há professores. Adiciona o primeiro para os poderes usar no horário.</div>
+    </div>
+  </main>
+
+  <dialog class="modal" id="modal">
+    <form id="form" method="dialog" novalidate>
+      <div class="modal__head">
+        <h2 id="modal-title">Novo professor</h2>
+        <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="f-nome">Nome *</label>
+            <input class="input" id="f-nome" name="nome" required />
+          </div>
+          <div class="field">
+            <label for="f-email">Email</label>
+            <input class="input" id="f-email" name="email" type="email" />
+          </div>
+          <div class="field">
+            <label for="f-tel">Telefone</label>
+            <input class="input" id="f-tel" name="telefone" type="tel" />
+          </div>
+          <div class="field span-2">
+            <label>Cor no horário</label>
+            <div class="swatches" id="swatches"></div>
+          </div>
+          <label class="check span-2">
+            <input type="checkbox" name="ativo" checked /> Professor ativo
+          </label>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--danger" id="apagar" hidden>Apagar</button>
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn" id="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal, CORES } from "./js/app.js";
+
+    await requireAuth();
+
+    const $ = (id) => document.getElementById(id);
+    const modal = $("modal");
+    const form = $("form");
+    wireModal(modal);
+
+    $("swatches").innerHTML = CORES.map(
+      (c, i) => `<label title="${c}"><input type="radio" name="cor" value="${c}" ${i === 0 ? "checked" : ""} /><i style="background:${c}"></i></label>`
+    ).join("");
+
+    let profs = [];
+    let contagem = new Map();
+    let editId = null;
+
+    async function carregar() {
+      const [{ data: p, error: e1 }, { data: h, error: e2 }] = await Promise.all([
+        sb.from("professores").select("*").order("nome"),
+        sb.from("horario").select("professor_id"),
+      ]);
+      if (failed(e1, "Erro a carregar professores") || failed(e2, "Erro a carregar horário")) return;
+      profs = p;
+      contagem = new Map();
+      for (const r of h) contagem.set(r.professor_id, (contagem.get(r.professor_id) ?? 0) + 1);
+
+      $("vazio").hidden = profs.length > 0;
+      $("lista").innerHTML = profs.map((p) => `
+        <tr data-id="${p.id}">
+          <td><span class="dot" style="background:${esc(p.cor)}"></span><strong>${esc(p.nome)}</strong></td>
+          <td>${esc(p.email) || '<span class="muted">—</span>'}</td>
+          <td>${esc(p.telefone) || '<span class="muted">—</span>'}</td>
+          <td>${contagem.get(p.id) ?? 0}</td>
+          <td>${p.ativo ? '<span class="badge badge--green">Ativo</span>' : '<span class="badge badge--off">Inativo</span>'}</td>
+        </tr>`).join("");
+    }
+
+    function abrir(p = null) {
+      editId = p?.id ?? null;
+      form.reset();
+      fillForm(form, p ?? { ativo: true, cor: CORES[contagem.size % CORES.length] });
+      $("modal-title").textContent = p ? "Editar professor" : "Novo professor";
+      $("apagar").hidden = !p;
+      modal.showModal();
+      $("f-nome").focus();
+    }
+
+    $("lista").addEventListener("click", (e) => {
+      const tr = e.target.closest("tr[data-id]");
+      if (tr) abrir(profs.find((p) => p.id === tr.dataset.id));
+    });
+    $("novo").addEventListener("click", () => abrir());
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const dados = formData(form);
+      if (!dados.nome) return toast("O nome é obrigatório.", true);
+      $("guardar").disabled = true;
+      const { error } = editId
+        ? await sb.from("professores").update(dados).eq("id", editId)
+        : await sb.from("professores").insert(dados);
+      $("guardar").disabled = false;
+      if (failed(error, "Não foi possível guardar")) return;
+      modal.close();
+      toast("Guardado.");
+      carregar();
+    });
+
+    $("apagar").addEventListener("click", async () => {
+      const p = profs.find((x) => x.id === editId);
+      if (!confirm(`Apagar "${p.nome}"?\n\nAs aulas dele no horário ficam sem professor. Se apenas deixou de dar aulas, desmarca "Professor ativo".`)) return;
+      const { error } = await sb.from("professores").delete().eq("id", editId);
+      if (failed(error, "Não foi possível apagar")) return;
+      modal.close();
+      toast("Professor apagado.");
+      carregar();
+    });
+
+    carregar();
+  </script>
+</body>
+</html>

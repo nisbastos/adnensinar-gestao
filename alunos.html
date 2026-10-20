@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Alunos | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Alunos</h1>
+      <div class="toolbar">
+        <input class="input search" id="search" type="search" placeholder="Pesquisar nome, escola, encarregado…" />
+        <select class="select" id="filter-estado" style="width:auto">
+          <option value="ativos">Ativos</option>
+          <option value="inativos">Inativos</option>
+          <option value="todos">Todos</option>
+        </select>
+        <button class="btn" id="novo">+ Novo aluno</button>
+      </div>
+    </div>
+
+    <p class="muted small" id="contagem"></p>
+
+    <div class="card table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Ano</th>
+            <th>Serviço</th>
+            <th>Encarregado de educação</th>
+            <th>Contacto</th>
+            <th>Aulas/semana</th>
+          </tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div class="empty" id="vazio" hidden>Ainda não há alunos aqui.</div>
+    </div>
+  </main>
+
+  <dialog class="modal" id="modal">
+    <form id="form" method="dialog" novalidate>
+      <div class="modal__head">
+        <h2 id="modal-title">Novo aluno</h2>
+        <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="f-nome">Nome *</label>
+            <input class="input" id="f-nome" name="nome" required />
+          </div>
+          <div class="field">
+            <label for="f-ano">Ano escolar</label>
+            <select class="select" id="f-ano" name="ano_escolar"></select>
+          </div>
+          <div class="field">
+            <label for="f-escola">Escola</label>
+            <input class="input" id="f-escola" name="escola" />
+          </div>
+          <div class="field">
+            <label for="f-servico">Serviço</label>
+            <select class="select" id="f-servico" name="servico">
+              <option value="">—</option>
+              <option>Apoio ao Estudo</option>
+              <option>Explicação</option>
+              <option>Ambos</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-disc">Disciplinas</label>
+            <input class="input" id="f-disc" name="disciplinas" placeholder="ex.: Matemática, Português" />
+          </div>
+          <div class="field span-2">
+            <label for="f-ee">Encarregado de educação</label>
+            <input class="input" id="f-ee" name="encarregado_nome" />
+          </div>
+          <div class="field">
+            <label for="f-tel">Telefone</label>
+            <input class="input" id="f-tel" name="encarregado_telefone" type="tel" />
+          </div>
+          <div class="field">
+            <label for="f-email">Email</label>
+            <input class="input" id="f-email" name="encarregado_email" type="email" />
+          </div>
+          <div class="field span-2">
+            <label for="f-notas">Notas</label>
+            <textarea class="textarea" id="f-notas" name="notas"></textarea>
+          </div>
+          <label class="check span-2">
+            <input type="checkbox" name="ativo" checked /> Aluno ativo
+          </label>
+          <div class="span-2 small muted" id="f-aulas"></div>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--danger" id="apagar" hidden>Apagar</button>
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn" id="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/alunos.js"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Entrar | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="login">
+    <section class="login__card card">
+      <img src="assets/logo.png" alt="ADN Ensinar" />
+      <p>Centro de operações</p>
+      <form id="login-form" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <p class="login__error" id="login-error" role="alert"></p>
+        <button class="btn" type="submit">Entrar</button>
+      </form>
+    </section>
+  </main>
+
+  <script type="module">
+    import { sb } from "./js/app.js";
+
+    const { data } = await sb.auth.getSession();
+    if (data.session) location.replace("horario.html");
+
+    const form = document.getElementById("login-form");
+    const err = document.getElementById("login-error");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      err.textContent = "";
+      const btn = form.querySelector("button");
+      btn.disabled = true;
+      btn.textContent = "A entrar…";
+      const { error } = await sb.auth.signInWithPassword({
+        email: form.email.value.trim(),
+        password: form.password.value,
+      });
+      if (error) {
+        err.textContent = error.message === "Invalid login credentials"
+          ? "Email ou password incorretos."
+          : error.message;
+        btn.disabled = false;
+        btn.textContent = "Entrar";
+        return;
+      }
+      location.replace("horario.html");
+    });
+  </script>
+</body>
+</html>
