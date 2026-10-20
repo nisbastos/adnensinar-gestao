@@ -7,7 +7,7 @@ const DIAS_VISIVEIS = [1, 2, 3, 4, 5]; // segunda a sexta (sábado e domingo fec
 const INICIO = 9 * 60;   // 09:00
 const FIM = 19 * 60;     // 19:00 (o centro fecha às 18:30)
 const SLOT_MIN = 30;     // cada linha = 30 min
-const SLOT_PX = 28;      // altura de cada linha
+let SLOT_PX = 28;        // altura de cada linha (reduz ao imprimir)
 
 // Períodos fechados [dia (0 = todos), início, fim], para sombrear na grelha.
 const FECHADO = [
@@ -230,6 +230,38 @@ document.querySelectorAll(".segmented [data-view]").forEach((b) =>
   })
 );
 $("filter-aluno").addEventListener("input", render);
+// ---------- Exportar PDF (impressão do que está no ecrã, com os filtros) ----------
+
+function descricaoFiltros() {
+  const partes = [vista === "salas" ? `Por sala · ${DIAS[diaAtivo]}` : "Semana"];
+  const sel = (id) => $(id).selectedOptions[0];
+  if ($("filter-sala").value) partes.push(`Sala: ${sel("filter-sala").textContent}`);
+  if ($("filter-prof").value) partes.push(`Professor: ${sel("filter-prof").textContent}`);
+  const q = $("filter-aluno").value.trim();
+  if (q) partes.push(`Aluno: "${q}"`);
+  return partes;
+}
+
+const tituloOriginal = document.title;
+
+window.addEventListener("beforeprint", () => {
+  const partes = descricaoFiltros();
+  const hoje = new Date().toLocaleDateString("pt-PT");
+  $("print-title").textContent = "Horário · ADN Ensinar";
+  $("print-sub").textContent = `${partes.join(" · ")} — gerado a ${hoje}`;
+  document.title = `Horário ADN Ensinar - ${partes.join(" - ").replace(/[\\/:*?"<>|]/g, "")}`;
+  SLOT_PX = 26;
+  render();
+});
+
+window.addEventListener("afterprint", () => {
+  document.title = tituloOriginal;
+  SLOT_PX = 28;
+  render();
+});
+
+$("exportar").addEventListener("click", () => window.print());
+
 $("nova").addEventListener("click", () => abrir(null, { dia_semana: diaAtivo, hora_inicio: "14:00", hora_fim: "15:00" }));
 
 // ---------- Modal ----------

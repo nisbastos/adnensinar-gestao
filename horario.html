@@ -27,7 +27,16 @@
           <option value="">Todos os professores</option>
         </select>
         <input class="input search" id="filter-aluno" type="search" placeholder="Filtrar por aluno…" />
+        <button class="btn btn--ghost" id="exportar" title="Abre a janela de impressão — escolhe &quot;Guardar como PDF&quot;">Exportar PDF</button>
         <button class="btn" id="nova">+ Nova aula</button>
+      </div>
+    </div>
+
+    <div class="print-head" id="print-head" aria-hidden="true">
+      <img src="assets/logo.png" alt="" />
+      <div>
+        <h2 id="print-title">Horário semanal</h2>
+        <p id="print-sub"></p>
       </div>
     </div>
 
@@ -38,7 +47,7 @@
     </div>
 
     <div class="legend" id="legend"></div>
-    <p class="muted small">Clica num espaço vazio para criar uma aula nesse dia e hora. As áreas tracejadas são horas em que o centro está fechado.</p>
+    <p class="muted small no-print">Clica num espaço vazio para criar uma aula nesse dia e hora. As áreas tracejadas são horas em que o centro está fechado.</p>
   </main>
 
   <dialog class="modal" id="modal">
