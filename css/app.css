@@ -425,9 +425,6 @@ table.table {
 .segmented button[aria-pressed="true"] { background: var(--c-brand-1); color: var(--c-dark-2); }
 
 .schedule-wrap { overflow-x: auto; }
-.schedule--rooms { min-width: calc(56px + var(--days) * 140px); }
-
-.day-tabs--always { display: flex !important; }
 
 .day-tabs { display: none; gap: 6px; overflow-x: auto; margin-bottom: 12px; }
 
@@ -445,14 +442,11 @@ table.table {
 .schedule {
   --slot-h: 28px;
   display: grid;
-  grid-template-columns: 56px repeat(var(--days), minmax(120px, 1fr));
-  overflow: hidden;
+  grid-template-columns: 56px repeat(var(--cols), minmax(92px, 1fr));
 }
 
 .schedule__corner,
 .schedule__dayhead {
-  position: sticky;
-  top: 0;
   background: #fff;
   border-bottom: 1px solid var(--c-line);
   padding: 12px 8px;
@@ -461,7 +455,26 @@ table.table {
   z-index: 2;
 }
 
-.schedule__dayhead { border-left: 1px solid var(--c-line); }
+.schedule__dayhead { border-left: 2px solid #d5dcdc; border-bottom: 0; padding-bottom: 4px; }
+
+.schedule__roomhead {
+  background: #fff;
+  border-bottom: 1px solid var(--c-line);
+  border-left: 1px solid var(--c-line);
+  padding: 4px 6px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-brand-2-dark);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schedule__roomhead.is-none { color: var(--c-mid); font-style: italic; }
+
+.schedule__col.day-start,
+.schedule__roomhead.day-start { border-left: 2px solid #d5dcdc; }
 
 .schedule__times { position: relative; }
 
@@ -512,6 +525,16 @@ table.table {
 .lesson strong { display: block; font-size: 12.5px; }
 .lesson .lesson__time { opacity: .75; }
 .lesson .lesson__students { opacity: .85; margin-top: 2px; }
+.lesson .lesson__time, .lesson .lesson__prof { display: block; }
+.lesson__tag {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 10px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .7);
+}
+.lesson--outra { opacity: .6; border-style: dashed; border-color: rgba(0, 0, 0, .25); }
 
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--c-dark); margin-top: 12px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -519,8 +542,8 @@ table.table {
 
 @media (max-width: 760px) {
   .day-tabs { display: flex; }
-  .schedule:not(.schedule--rooms) { grid-template-columns: 48px 1fr; }
-  .schedule:not(.schedule--rooms) [data-day]:not(.is-active) { display: none; }
+  .schedule { grid-template-columns: 48px repeat(var(--cols-dia, 1), minmax(90px, 1fr)); }
+  .schedule [data-day]:not(.is-active) { display: none; }
 }
 
 /* ---------- Cores de professores (pastéis da marca) ---------- */
@@ -568,11 +591,13 @@ table.table {
   .card { box-shadow: none; border: 1px solid var(--c-line); border-radius: 10px; }
   .schedule-wrap { overflow: hidden; }
   .schedule { width: 100%; }
-  .schedule, .schedule--rooms { min-width: 0 !important; grid-template-columns: 44px repeat(var(--days), 1fr) !important; }
+  .schedule { grid-template-columns: 40px repeat(var(--cols), 1fr) !important; }
   .schedule [data-day] { display: block !important; }
   .schedule__dayhead, .schedule__corner { position: static; padding: 6px; }
   .schedule__col { cursor: default; }
-  .lesson { box-shadow: none; break-inside: avoid; font-size: 10.5px; padding: 3px 5px; }
-  .lesson strong { font-size: 11px; }
+  .lesson { box-shadow: none; break-inside: avoid; font-size: 9px; padding: 2px 4px; line-height: 1.2; }
+  .lesson strong { font-size: 9.5px; }
+  .schedule__roomhead { font-size: 9.5px; padding: 2px 3px 5px; }
+  .schedule__time { font-size: 10px; }
   .legend { margin-top: 6px; font-size: 11px; }
 }

@@ -25,9 +25,10 @@ Acesso só com login.
 | `css/app.css` | Estilos (branding do adnensinar.pt) |
 | `supabase/schema.sql` | Tabelas e regras de acesso — correr 1.º no SQL Editor |
 | `supabase/002_inscricao_salas.sql` | Campos do formulário de inscrição + salas — correr 2.º |
+| `supabase/003_tipo_salas.sql` | Tipo de sala (Apoio / Explicação / Ambas) — correr 3.º |
 
 ## Primeira configuração
 
-1. Supabase → SQL Editor → correr `supabase/schema.sql` e depois `supabase/002_inscricao_salas.sql`.
+1. Supabase → SQL Editor → correr `supabase/schema.sql` depois `002_inscricao_salas.sql` e `003_tipo_salas.sql`.
 2. GitHub → Settings → Pages → Source: *Deploy from a branch* → `main` / `(root)`.
 3. Abrir o endereço do Pages e entrar com o utilizador criado no Supabase.

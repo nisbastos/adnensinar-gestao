@@ -24,10 +24,10 @@ wireModal(modal);
 let aulas = [];       // horario + alunos
 let profs = [];
 let salas = [];
-let vista = "semana"; // "semana" | "salas"
 let alunos = [];
 let editId = null;
-let diaAtivo = Math.min(Math.max(new Date().getDay(), 1), 5);
+let tipo = "Explicação"; // vista: "Explicação" | "Apoio ao Estudo"
+let diaAtivo = Math.min(Math.max(new Date().getDay(), 1), 5); // usado em ecrãs pequenos
 
 $("f-dia").innerHTML = DIAS.slice(1).map((d, i) => `<option value="${i + 1}">${d}</option>`).join("");
 
@@ -47,16 +47,9 @@ async function carregar() {
   alunos = r3.data;
   salas = r4.data;
 
-  const salaAtual = $("filter-sala").value;
-  $("filter-sala").innerHTML =
-    `<option value="">Todas as salas</option>` +
-    salas.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("") +
-    `<option value="__none">Sem sala</option>`;
-  $("filter-sala").value = salaAtual;
-
   $("f-sala").innerHTML =
     `<option value="">—</option>` +
-    salas.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
+    salas.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}${x.tipo && x.tipo !== "Ambas" ? " (" + esc(x.tipo) + ")" : ""}</option>`).join("");
 
   const filtroAtual = $("filter-prof").value;
   $("filter-prof").innerHTML =
@@ -74,7 +67,21 @@ async function carregar() {
     .map((p) => `<span><i style="background:${esc(p.cor)}"></i>${esc(p.nome)}</span>`)
     .join("");
 
+  preencherFiltroSala();
   render();
+}
+
+/** Salas visíveis na vista atual: do tipo escolhido ou "Ambas". */
+const salasDoTipo = () =>
+  salas.filter((x) => (x.tipo ?? "Ambas") === "Ambas" || x.tipo === tipo);
+
+function preencherFiltroSala() {
+  const atual = $("filter-sala").value;
+  const opcoes = salasDoTipo().filter((x) => x.ativo);
+  $("filter-sala").innerHTML =
+    `<option value="">Todas as salas</option>` +
+    opcoes.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
+  $("filter-sala").value = opcoes.some((x) => x.id === atual) ? atual : "";
 }
 
 const profPorId = (id) => profs.find((p) => p.id === id);
@@ -112,46 +119,61 @@ function emFaixas(lista) {
 
 function filtradas() {
   const prof = $("filter-prof").value;
-  const sala = $("filter-sala").value;
   const q = norm($("filter-aluno").value);
   return aulas.filter((a) => {
     if (prof === "__none" && a.professor_id) return false;
     if (prof && prof !== "__none" && a.professor_id !== prof) return false;
-    if (sala === "__none" && a.sala_id) return false;
-    if (sala && sala !== "__none" && a.sala_id !== sala) return false;
     if (q && !a.alunos.some((id) => norm(alunoPorId(id)?.nome).includes(q))) return false;
     return true;
   });
 }
 
-/** Colunas da grelha: dias da semana, ou salas do dia escolhido. */
-function colunas(visiveis) {
-  if (vista === "semana") {
-    return DIAS_VISIVEIS.map((d) => ({ key: String(d), label: DIAS[d], dia: d, aulas: visiveis.filter((a) => a.dia_semana === d) }));
-  }
-  const doDia = visiveis.filter((a) => a.dia_semana === diaAtivo);
+/**
+ * Colunas: para cada dia, uma coluna por sala do tipo escolhido.
+ * Nas salas "Ambas" aparecem todas as aulas (para se ver a ocupação real).
+ * Aulas da categoria escolhida sem sala vão para uma coluna "Sem sala" nesse dia.
+ */
+function grupos(visiveis) {
   const filtroSala = $("filter-sala").value;
-  const cols = salas
-    .filter((x) => (x.ativo || doDia.some((a) => a.sala_id === x.id)) && (!filtroSala || filtroSala === x.id))
-    .map((x) => ({ key: x.id, label: x.nome, dia: diaAtivo, sala_id: x.id, aulas: doDia.filter((a) => a.sala_id === x.id) }));
-  const semSala = doDia.filter((a) => !a.sala_id || !salaPorId(a.sala_id));
-  if (semSala.length || filtroSala === "__none") cols.push({ key: "__none", label: "Sem sala", dia: diaAtivo, sala_id: null, aulas: semSala });
-  return cols;
+  const doTipo = salasDoTipo().filter((x) => !filtroSala || x.id === filtroSala);
+  return DIAS_VISIVEIS.map((d) => {
+    const doDia = visiveis.filter((a) => a.dia_semana === d);
+    const cols = doTipo
+      .filter((x) => x.ativo || doDia.some((a) => a.sala_id === x.id))
+      .map((x) => ({ dia: d, sala_id: x.id, label: x.nome, aulas: doDia.filter((a) => a.sala_id === x.id) }));
+    const semSala = filtroSala ? [] : doDia.filter((a) => a.categoria === tipo && (!a.sala_id || !salaPorId(a.sala_id)));
+    if (semSala.length) cols.push({ dia: d, sala_id: null, label: "Sem sala", aulas: semSala, semSala: true });
+    return { dia: d, cols };
+  });
 }
 
 function render() {
   const el = $("schedule");
-  const cols = colunas(filtradas());
-  const salasVista = vista === "salas";
-  el.classList.toggle("schedule--rooms", salasVista);
-  el.style.setProperty("--days", Math.max(cols.length, 1));
-  el.style.setProperty("--slot-h", SLOT_PX + "px");
+  const gs = grupos(filtradas());
+  const total = gs.reduce((n, g) => n + g.cols.length, 0);
   const altura = yDe(FIM);
+  el.style.setProperty("--cols", Math.max(total, 1));
+  el.style.setProperty("--slot-h", SLOT_PX + "px");
+  el.style.setProperty("--cols-dia", Math.max(gs.find((g) => g.dia === diaAtivo)?.cols.length ?? 1, 1));
 
-  let html = `<div class="schedule__corner"></div>`;
-  html += cols.map(
-    (c) => `<div class="schedule__dayhead ${!salasVista && c.dia === diaAtivo ? "is-active" : ""}" data-day="${c.dia}">${esc(c.label)}</div>`
-  ).join("");
+  if (!total) {
+    el.innerHTML = `<div class="empty" style="grid-column: 1 / -1">Não há salas do tipo <strong>${esc(tipo)}</strong>. Cria-as (ou define o tipo) na página <a href="salas.html">Salas</a>.</div>`;
+    renderTabs();
+    return;
+  }
+
+  // Linha 1: dias (cada um ocupa as colunas das suas salas)
+  let html = `<div class="schedule__corner" style="grid-row: span 2"></div>`;
+  for (const g of gs) {
+    if (!g.cols.length) continue;
+    html += `<div class="schedule__dayhead ${g.dia === diaAtivo ? "is-active" : ""}" data-day="${g.dia}" style="grid-column: span ${g.cols.length}">${DIAS[g.dia]}</div>`;
+  }
+  // Linha 2: salas
+  for (const g of gs) {
+    g.cols.forEach((c, i) => {
+      html += `<div class="schedule__roomhead ${i === 0 ? "day-start" : ""} ${c.semSala ? "is-none" : ""} ${g.dia === diaAtivo ? "is-active" : ""}" data-day="${g.dia}" title="${esc(c.label)}">${esc(c.label)}</div>`;
+    });
+  }
 
   // Coluna das horas
   html += `<div class="schedule__times" style="height:${altura}px">`;
@@ -160,38 +182,42 @@ function render() {
   }
   html += `</div>`;
 
-  for (const c of cols) {
-    html += `<div class="schedule__col ${!salasVista && c.dia === diaAtivo ? "is-active" : ""}" data-day="${c.dia}" data-sala="${c.sala_id ?? ""}" style="height:${altura}px">`;
-    for (const [dia, ini, fim] of FECHADO) {
-      if (dia !== 0 && dia !== c.dia) continue;
-      html += `<div class="schedule__closed" style="top:${yDe(toMin(ini))}px;height:${yDe(toMin(fim)) - yDe(toMin(ini))}px"></div>`;
-    }
-    for (const { aula: a, faixa, total } of emFaixas(c.aulas)) {
-      const p = profPorId(a.professor_id);
-      const sala = salaPorId(a.sala_id);
-      const top = yDe(toMin(a.hora_inicio));
-      const h = Math.max(yDe(toMin(a.hora_fim)) - top - 2, 18);
-      const w = 100 / total;
-      const nomes = a.alunos.map((id) => alunoPorId(id)?.nome?.split(" ")[0]).filter(Boolean);
-      const titulo = a.disciplina || a.categoria || "Aula";
-      const extra = [p?.nome, !salasVista ? sala?.nome : null].filter(Boolean).map(esc).join(" · ");
-      html += `
-        <div class="lesson" data-id="${a.id}" tabindex="0"
-             style="top:${top + 1}px;height:${h}px;left:calc(${faixa * w}% + 3px);width:calc(${w}% - 6px);background:${esc(p?.cor ?? "#eeeeee")}"
-             title="${esc(titulo)} · ${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}${extra ? " · " + extra : ""}">
-          <strong>${esc(titulo)}</strong>
-          <span class="lesson__time">${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}${extra ? " · " + extra : ""}</span>
-          ${nomes.length ? `<div class="lesson__students">${nomes.map(esc).join(", ")}</div>` : ""}
-        </div>`;
-    }
-    html += `</div>`;
+  for (const g of gs) {
+    g.cols.forEach((c, i) => {
+      html += `<div class="schedule__col ${i === 0 ? "day-start" : ""} ${g.dia === diaAtivo ? "is-active" : ""}" data-day="${g.dia}" data-sala="${c.sala_id ?? ""}" style="height:${altura}px">`;
+      for (const [dia, ini, fim] of FECHADO) {
+        if (dia !== 0 && dia !== g.dia) continue;
+        html += `<div class="schedule__closed" style="top:${yDe(toMin(ini))}px;height:${yDe(toMin(fim)) - yDe(toMin(ini))}px"></div>`;
+      }
+      for (const { aula: a, faixa, total: n } of emFaixas(c.aulas)) {
+        const p = profPorId(a.professor_id);
+        const top = yDe(toMin(a.hora_inicio));
+        const h = Math.max(yDe(toMin(a.hora_fim)) - top - 2, 18);
+        const w = 100 / n;
+        const nomes = a.alunos.map((id) => alunoPorId(id)?.nome?.split(" ")[0]).filter(Boolean);
+        const titulo = a.disciplina || a.categoria || "Aula";
+        const outra = a.categoria && a.categoria !== tipo;
+        html += `
+          <div class="lesson ${outra ? "lesson--outra" : ""}" data-id="${a.id}" tabindex="0"
+               style="top:${top + 1}px;height:${h}px;left:calc(${faixa * w}% + 2px);width:calc(${w}% - 4px);background:${esc(p?.cor ?? "#eeeeee")}"
+               title="${esc(titulo)} · ${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}${p ? " · " + esc(p.nome) : ""}${a.categoria ? " · " + esc(a.categoria) : ""}${nomes.length ? " · " + nomes.map(esc).join(", ") : ""}">
+            <strong>${esc(titulo)}</strong>
+            <span class="lesson__time">${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}</span>
+            ${p ? `<span class="lesson__prof">${esc(p.nome)}</span>` : ""}
+            ${outra ? `<span class="lesson__tag">${esc(a.categoria)}</span>` : ""}
+            ${nomes.length ? `<div class="lesson__students">${nomes.map(esc).join(", ")}</div>` : ""}
+          </div>`;
+      }
+      html += `</div>`;
+    });
   }
-  if (!cols.length) html += `<div class="empty" style="grid-column: 2 / -1">Ainda não há salas — cria-as na página Salas.</div>`;
   el.innerHTML = html;
+  renderTabs();
+}
 
-  $("day-tabs").classList.toggle("day-tabs--always", salasVista);
+function renderTabs() {
   $("day-tabs").innerHTML = DIAS_VISIVEIS.map(
-    (d) => `<button type="button" data-day="${d}" aria-pressed="${d === diaAtivo}">${salasVista ? DIAS[d] : DIAS_CURTOS[d]}</button>`
+    (d) => `<button type="button" data-day="${d}" aria-pressed="${d === diaAtivo}">${DIAS_CURTOS[d]}</button>`
   ).join("");
 }
 
@@ -206,7 +232,13 @@ $("schedule").addEventListener("click", (e) => {
   const y = e.clientY - col.getBoundingClientRect().top;
   const ini = INICIO + Math.floor(y / SLOT_PX) * SLOT_MIN;
   const fmt = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-  abrir(null, { dia_semana: Number(col.dataset.day), sala_id: col.dataset.sala || null, hora_inicio: fmt(ini), hora_fim: fmt(Math.min(ini + 60, FIM)) });
+  abrir(null, {
+    dia_semana: Number(col.dataset.day),
+    sala_id: col.dataset.sala || null,
+    categoria: tipo,
+    hora_inicio: fmt(ini),
+    hora_fim: fmt(Math.min(ini + 60, FIM)),
+  });
 });
 
 $("schedule").addEventListener("keydown", (e) => {
@@ -222,18 +254,20 @@ $("day-tabs").addEventListener("click", (e) => {
 
 $("filter-prof").addEventListener("change", render);
 $("filter-sala").addEventListener("change", render);
-document.querySelectorAll(".segmented [data-view]").forEach((b) =>
+$("filter-aluno").addEventListener("input", render);
+document.querySelectorAll(".segmented [data-tipo]").forEach((b) =>
   b.addEventListener("click", () => {
-    vista = b.dataset.view;
-    document.querySelectorAll(".segmented [data-view]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    tipo = b.dataset.tipo;
+    document.querySelectorAll(".segmented [data-tipo]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    preencherFiltroSala();
     render();
   })
 );
-$("filter-aluno").addEventListener("input", render);
+
 // ---------- Exportar PDF (impressão do que está no ecrã, com os filtros) ----------
 
 function descricaoFiltros() {
-  const partes = [vista === "salas" ? `Por sala · ${DIAS[diaAtivo]}` : "Semana"];
+  const partes = [tipo];
   const sel = (id) => $(id).selectedOptions[0];
   if ($("filter-sala").value) partes.push(`Sala: ${sel("filter-sala").textContent}`);
   if ($("filter-prof").value) partes.push(`Professor: ${sel("filter-prof").textContent}`);
@@ -250,7 +284,7 @@ window.addEventListener("beforeprint", () => {
   $("print-title").textContent = "Horário · ADN Ensinar";
   $("print-sub").textContent = `${partes.join(" · ")} — gerado a ${hoje}`;
   document.title = `Horário ADN Ensinar - ${partes.join(" - ").replace(/[\\/:*?"<>|]/g, "")}`;
-  SLOT_PX = 26;
+  SLOT_PX = 24;
   render();
 });
 
@@ -262,7 +296,7 @@ window.addEventListener("afterprint", () => {
 
 $("exportar").addEventListener("click", () => window.print());
 
-$("nova").addEventListener("click", () => abrir(null, { dia_semana: diaAtivo, hora_inicio: "14:00", hora_fim: "15:00" }));
+$("nova").addEventListener("click", () => abrir(null, { dia_semana: diaAtivo, categoria: tipo, hora_inicio: "14:00", hora_fim: "15:00" }));
 
 // ---------- Modal ----------
 

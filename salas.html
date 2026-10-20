@@ -23,7 +23,7 @@
     <div class="card table-wrap">
       <table class="table">
         <thead>
-          <tr><th>Ordem</th><th>Nome</th><th>Aulas/semana</th><th>Estado</th></tr>
+          <tr><th>Ordem</th><th>Nome</th><th>Tipo</th><th>Aulas/semana</th><th>Estado</th></tr>
         </thead>
         <tbody id="lista"></tbody>
       </table>
@@ -46,6 +46,14 @@
           <div class="field">
             <label for="f-ordem">Ordem no horário</label>
             <input class="input" id="f-ordem" name="ordem" type="number" min="0" step="1" />
+          </div>
+          <div class="field span-2">
+            <label for="f-tipo">Tipo</label>
+            <select class="select" id="f-tipo" name="tipo">
+              <option>Ambas</option>
+              <option>Apoio ao Estudo</option>
+              <option>Explicação</option>
+            </select>
           </div>
           <label class="check span-2"><input type="checkbox" name="ativo" checked /> Sala em uso</label>
         </div>
@@ -87,15 +95,21 @@
         <tr data-id="${s.id}">
           <td class="muted">${s.ordem}</td>
           <td><strong>${esc(s.nome)}</strong></td>
+          <td>${tipoBadge(s.tipo)}</td>
           <td>${contagem.get(s.id) ?? 0}</td>
           <td>${s.ativo ? '<span class="badge badge--green">Em uso</span>' : '<span class="badge badge--off">Fora de uso</span>'}</td>
         </tr>`).join("");
     }
 
+    function tipoBadge(t) {
+      const cls = t === "Explicação" ? "badge--yellow" : t === "Apoio ao Estudo" ? "badge--green" : "badge--pink";
+      return `<span class="badge ${cls}">${esc(t ?? "Ambas")}</span>`;
+    }
+
     function abrir(s = null) {
       editId = s?.id ?? null;
       form.reset();
-      fillForm(form, s ?? { ativo: true, ordem: salas.length + 1 });
+      fillForm(form, s ?? { ativo: true, ordem: salas.length + 1, tipo: "Ambas" });
       $("modal-title").textContent = s ? "Editar sala" : "Nova sala";
       $("apagar").hidden = !s;
       modal.showModal();
