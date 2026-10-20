@@ -26,7 +26,7 @@ let profs = [];
 let salas = [];
 let alunos = [];
 let editId = null;
-let tipo = "Explicação"; // vista: "Explicação" | "Apoio ao Estudo"
+let tipo = "Apoio ao Estudo"; // vista: "Apoio ao Estudo" | "Explicação"
 let diaAtivo = Math.min(Math.max(new Date().getDay(), 1), 5); // usado em ecrãs pequenos
 
 $("f-dia").innerHTML = DIAS.slice(1).map((d, i) => `<option value="${i + 1}">${d}</option>`).join("");
@@ -54,17 +54,17 @@ async function carregar() {
   const filtroAtual = $("filter-prof").value;
   $("filter-prof").innerHTML =
     `<option value="">Todos os professores</option>` +
-    profs.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join("") +
+    profs.map((p) => `<option value="${p.id}">${esc(profCurto(p))}</option>`).join("") +
     `<option value="__none">Sem professor</option>`;
   $("filter-prof").value = filtroAtual;
 
   $("f-prof").innerHTML =
     `<option value="">—</option>` +
-    profs.filter((p) => p.ativo).map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join("");
+    profs.filter((p) => p.ativo).map((p) => `<option value="${p.id}">${esc(profCurto(p))}${p.nome.trim().includes(" ") ? " (" + esc(p.nome) + ")" : ""}</option>`).join("");
 
   $("legend").innerHTML = profs
     .filter((p) => p.ativo)
-    .map((p) => `<span><i style="background:${esc(p.cor)}"></i>${esc(p.nome)}</span>`)
+    .map((p) => `<span><i style="background:${esc(p.cor)}"></i>${esc(profCurto(p))}</span>`)
     .join("");
 
   preencherFiltroSala();
@@ -87,6 +87,19 @@ function preencherFiltroSala() {
 const profPorId = (id) => profs.find((p) => p.id === id);
 const alunoPorId = (id) => alunos.find((a) => a.id === id);
 const salaPorId = (id) => salas.find((x) => x.id === id);
+
+/** "César Silva" → "Prof. César" */
+const profCurto = (p) => (p ? `Prof. ${String(p.nome).trim().split(/\s+/)[0]}` : "");
+
+/** Nomes ainda por associar (guardados nas notas na importação). */
+const porAssociar = (a) =>
+  (a.notas?.match(/Alunos por associar:\s*(.+)/)?.[1] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+
+/** "Maria Inês Costa Silva" → "Maria Silva" */
+const nomeCurto = (nome) => {
+  const w = String(nome ?? "").trim().split(/\s+/);
+  return w.length > 1 ? `${w[0]} ${w[w.length - 1]}` : w[0];
+};
 
 // ---------- Grelha ----------
 
@@ -204,18 +217,26 @@ function render() {
         const top = yDe(toMin(a.hora_inicio));
         const h = Math.max(yDe(toMin(a.hora_fim)) - top - 2, 18);
         const w = 100 / n;
-        const nomes = a.alunos.map((id) => alunoPorId(id)?.nome?.split(" ")[0]).filter(Boolean);
+        const nomes = [...a.alunos.map((id) => nomeCurto(alunoPorId(id)?.nome)).filter(Boolean), ...porAssociar(a)];
+        const apoio = a.categoria === "Apoio ao Estudo";
         const titulo = a.disciplina || a.categoria || "Aula";
         const outra = a.categoria && a.categoria !== tipo;
+        const quando = `${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}`;
+        const tooltip = [titulo, quando, profCurto(p), a.categoria, nomes.join(", ")].filter(Boolean).map(esc).join(" · ");
         html += `
-          <div class="lesson ${outra ? "lesson--outra" : ""}" data-id="${a.id}" tabindex="0"
+          <div class="lesson ${apoio ? "lesson--apoio" : "lesson--exp"} ${outra ? "lesson--outra" : ""}" data-id="${a.id}" tabindex="0"
                style="top:${top + 1}px;height:${h}px;left:calc(${faixa * w}% + 2px);width:calc(${w}% - 4px);background:${esc(p?.cor ?? "#eeeeee")}"
-               title="${esc(titulo)} · ${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}${p ? " · " + esc(p.nome) : ""}${a.categoria ? " · " + esc(a.categoria) : ""}${nomes.length ? " · " + nomes.map(esc).join(", ") : ""}">
-            <strong>${esc(titulo)}</strong>
-            <span class="lesson__time">${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}</span>
-            ${p ? `<span class="lesson__prof">${esc(p.nome)}</span>` : ""}
-            ${outra ? `<span class="lesson__tag">${esc(a.categoria)}</span>` : ""}
-            ${nomes.length ? `<div class="lesson__students">${nomes.map(esc).join(", ")}</div>` : ""}
+               title="${tooltip}">
+            ${apoio
+              ? `<strong>${quando}</strong>
+                 ${p ? `<span class="lesson__time">${esc(profCurto(p))}</span>` : ""}
+                 ${outra ? `<span class="lesson__tag">${esc(a.categoria)}</span>` : ""}
+                 <span class="lesson__count">${nomes.length} ${nomes.length === 1 ? "aluno" : "alunos"}</span>`
+              : `<strong>${esc(titulo)}</strong>
+                 ${nomes.length ? `<span class="lesson__students">${nomes.map(esc).join(", ")}</span>` : ""}
+                 ${p ? `<span class="lesson__prof">${esc(profCurto(p))}</span>` : ""}
+                 <span class="lesson__time">${quando}</span>
+                 ${outra ? `<span class="lesson__tag">${esc(a.categoria)}</span>` : ""}`}
           </div>`;
       }
       html += `</div>`;
@@ -355,7 +376,7 @@ function conflitos(dados) {
     if (toMin(a.hora_inicio) >= fim || toMin(a.hora_fim) <= ini) continue;
     const quando = `${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)}`;
     if (dados.professor_id && a.professor_id === dados.professor_id) {
-      avisos.push(`${profPorId(a.professor_id)?.nome} já tem aula das ${quando}.`);
+      avisos.push(`${profCurto(profPorId(a.professor_id))} já tem aula das ${quando}.`);
     }
     if (dados.sala_id && a.sala_id === dados.sala_id) {
       avisos.push(`${salaPorId(a.sala_id)?.nome} já está ocupada das ${quando}.`);

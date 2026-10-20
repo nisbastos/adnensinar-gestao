@@ -525,7 +525,20 @@ table.table {
 .lesson strong { display: block; font-size: 12.5px; }
 .lesson .lesson__time { opacity: .75; }
 .lesson .lesson__students { opacity: .85; margin-top: 2px; }
-.lesson .lesson__time, .lesson .lesson__prof { display: block; }
+.lesson { display: flex; flex-direction: column; }
+.lesson .lesson__time { display: block; }
+.lesson .lesson__time b { font-weight: 600; }
+.lesson { line-height: 1.25; }
+.lesson--exp .lesson__students { opacity: 1; font-weight: 600; margin-top: 1px; }
+.lesson--exp .lesson__prof { font-weight: 500; }
+.lesson--exp .lesson__time { font-size: 11px; }
+.lesson--exp > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+.lesson__count {
+  margin-top: auto;
+  align-self: flex-end;
+  font-size: 10.5px;
+  opacity: .6;
+}
 .lesson__tag {
   display: inline-block;
   margin-top: 2px;
