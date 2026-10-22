@@ -16,7 +16,6 @@ const DIA_LIMITE = 8;
 let mes = inicioMes(new Date()); // "AAAA-MM-01"
 let alunos = [];
 let planos = new Map();       // aluno_id → [plano]
-let definicoes = {};
 let linhas = [];              // mensalidades do mês
 let doAnoLetivo = [];         // mensalidades do ano letivo (para saber quem já pagou inscrição)
 let editId = null;
@@ -44,16 +43,15 @@ $("mes-seg").addEventListener("click", () => mudarMes(1));
 const inicioAnoLetivo = (iso) => `${anoLetivo(iso).slice(0, 4)}-09-01`;
 
 async function carregar() {
-  const [r1, r2, r3, r4, r5] = await Promise.all([
-    sb.from("alunos").select("id, nome, nome_comum, ano_escolar, ativo, data_inscricao"),
+  const [r1, r2, r4, r5] = await Promise.all([
+    sb.from("alunos").select("id, nome, nome_comum, ano_escolar, ativo, duodecimo_meses, desconto_pct, inscricao_valor"),
     sb.from("aluno_planos").select("*"),
-    sb.from("definicoes").select("chave, valor"),
     sb.from("mensalidades").select("*").eq("mes", mes),
     sb.from("mensalidades").select("aluno_id, mes, inscricao").gte("mes", inicioAnoLetivo(mes)).lt("mes", mes),
   ]);
   if (
     failed(r1.error, "Erro a carregar alunos") || failed(r2.error, "Erro a carregar planos") ||
-    failed(r3.error, "Erro a carregar definições") || failed(r4.error, "Erro a carregar mensalidades") ||
+    failed(r4.error, "Erro a carregar mensalidades") ||
     failed(r5.error, "Erro a carregar mensalidades")
   ) return;
 
@@ -63,7 +61,6 @@ async function carregar() {
     if (!planos.has(p.aluno_id)) planos.set(p.aluno_id, []);
     planos.get(p.aluno_id).push(p);
   }
-  definicoes = Object.fromEntries(r3.data.map((x) => [x.chave, Number(x.valor)]));
   linhas = r4.data;
   doAnoLetivo = r5.data;
   render();
@@ -72,8 +69,9 @@ async function carregar() {
 const alunoPorId = (id) => alunos.find((a) => a.id === id);
 const descPlano = (alunoId) =>
   (planos.get(alunoId) ?? [])
-    .map((p) => [p.servico, p.descricao].filter(Boolean).join(" · ") + (Number(p.desconto_pct) ? ` (−${Number(p.desconto_pct)}%)` : ""))
-    .filter(Boolean).join(" + ");
+    .map((p) => [p.servico, p.descricao].filter(Boolean).join(" · ") || "Valor manual")
+    .join(" + ") +
+  (Number(alunoPorId(alunoId)?.desconto_pct) ? ` (−${Number(alunoPorId(alunoId).desconto_pct)}%)` : "");
 
 /** Estado mostrado: "Por pagar" passa a "Em atraso" depois do dia limite. */
 function estadoVisivel(l) {
@@ -181,33 +179,24 @@ ligarOrdenacao(document.querySelector("table.table"), $("ordem"), estadoOrdem, r
 
 // ---------- Gerar mensalidades do mês ----------
 
-/** Mês em que a inscrição é cobrada: o mês da inscrição, ou setembro se se inscreveu antes do início do ano letivo. */
-function mesInscricao(aluno) {
-  if (!aluno.data_inscricao) return null;
-  const m = inicioMes(new Date(aluno.data_inscricao));
-  const inicio = inicioAnoLetivo(mes);
-  // Inscrições feitas até 6 meses antes de setembro contam para este ano letivo.
-  const [a] = inicio.split("-").map(Number);
-  if (m < inicio && m >= `${a}-03-01`) return inicio;
-  return m;
-}
-
 $("gerar").addEventListener("click", async () => {
   const mesNum = Number(mes.slice(5, 7));
   if ([6, 7, 8].includes(mesNum) &&
       !confirm(`Normalmente não há mensalidade em ${nomeMes(mes).split(" ")[0]} (junho é repartido em duodécimos; julho e agosto sem aulas).\n\nGerar mesmo assim?`)) return;
 
   const comLinha = new Set(linhas.map((l) => l.aluno_id));
-  const jaPagouInscricao = new Set(doAnoLetivo.filter((l) => Number(l.inscricao) > 0).map((l) => l.aluno_id));
-  const meses = definicoes.meses_duodecimo || 9;
-  const valorInscricao = cent((definicoes.valor_inscricao ?? 40) + (definicoes.valor_seguro ?? 0));
+  // A inscrição entra na 1.ª mensalidade do aluno neste ano letivo.
+  const jaTemMensalidade = new Set(doAnoLetivo.map((l) => l.aluno_id));
 
   const novas = alunos
     .filter((a) => a.ativo && !comLinha.has(a.id) && (planos.get(a.id) ?? []).length)
     .map((a) => {
-      const base = cent(planos.get(a.id).reduce((t, p) => t + Number(p.valor) * (1 - Number(p.desconto_pct) / 100), 0));
-      const inscricao = !jaPagouInscricao.has(a.id) && mesInscricao(a) === mes ? valorInscricao : 0;
-      return { aluno_id: a.id, mes, mensalidade: base, duodecimo: cent(base / meses), inscricao, estado: "Por pagar" };
+      const planosT = cent(planos.get(a.id).reduce((t, p) => t + Number(p.valor || 0), 0));
+      const mensalidade = cent(planosT - planosT * Number(a.desconto_pct || 0) / 100);
+      const meses = Number(a.duodecimo_meses || 0);
+      const duodecimo = meses > 0 ? cent(mensalidade / meses) : 0;
+      const inscricao = jaTemMensalidade.has(a.id) ? 0 : cent(a.inscricao_valor || 0);
+      return { aluno_id: a.id, mes, mensalidade, duodecimo, inscricao, estado: "Por pagar" };
     });
   if (!novas.length) return;
 
@@ -215,7 +204,7 @@ $("gerar").addEventListener("click", async () => {
   const nInsc = novas.filter((n) => n.inscricao).length;
   if (!confirm(
     `Criar ${novas.length} mensalidade${novas.length > 1 ? "s" : ""} de ${nomeMes(mes)}?\n\n` +
-    `Total previsto: ${euro(total)}` + (nInsc ? `\nInclui inscrição em ${nInsc} aluno${nInsc > 1 ? "s" : ""} (inscritos este mês).` : "") +
+    `Total previsto: ${euro(total)}` + (nInsc ? `\nInclui inscrição em ${nInsc} aluno${nInsc > 1 ? "s" : ""} (1.ª mensalidade do ano letivo).` : "") +
     `\n\nOs valores podem ser ajustados depois, em cada linha.`
   )) return;
 

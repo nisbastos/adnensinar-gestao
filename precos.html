@@ -16,36 +16,11 @@
     <div class="page-head">
       <h1>Preços</h1>
     </div>
+    <p class="muted" style="margin-top:-6px">Tabela usada para escolher o plano na ficha de cada aluno. Duodécimos, desconto e inscrição definem-se em cada aluno.</p>
 
-    <section class="card" style="padding:20px 22px; margin-bottom:22px">
-      <h2 style="font-size:20px; margin-bottom:12px">Regras das mensalidades</h2>
-      <form id="form-def" class="def-grid" novalidate>
-        <div class="field">
-          <label for="d-insc">Inscrição (€)</label>
-          <input class="input" id="d-insc" name="valor_inscricao" type="number" min="0" step="0.01" />
-        </div>
-        <div class="field">
-          <label for="d-seg">Seguro (€)</label>
-          <input class="input" id="d-seg" name="valor_seguro" type="number" min="0" step="0.01" />
-        </div>
-        <div class="field">
-          <label for="d-meses" title="O valor de junho é dividido por este número de mensalidades">Meses do duodécimo</label>
-          <input class="input" id="d-meses" name="meses_duodecimo" type="number" min="1" max="12" step="1" />
-        </div>
-        <div class="field">
-          <label for="d-irmao">Desconto irmão (%)</label>
-          <input class="input" id="d-irmao" name="desconto_irmao" type="number" min="0" max="100" step="1" />
-        </div>
-        <button class="btn" type="submit" id="guardar-def">Guardar</button>
-      </form>
-      <p class="small muted" style="margin-bottom:0">
-        Duodécimo = mensalidade ÷ meses do duodécimo (o valor de junho repartido pelas mensalidades do ano).
-        A inscrição + seguro entra uma vez por ano letivo, na mensalidade do mês em que o aluno se inscreveu (ou em setembro, se se inscreveu antes).
-      </p>
-    </section>
 
     <div class="page-head">
-      <h2 style="font-size:24px">Tabela de preços</h2>
+      <h2 style="font-size:24px">Tabela de preços 2026/2027</h2>
       <div class="toolbar">
         <select class="select" id="filter-nivel" aria-label="Nível">
           <option value="">Todos os níveis</option>
@@ -137,24 +112,17 @@
     const NIVEIS = ["1.º ciclo", "2.º ciclo", "3.º ciclo", "Secundário"];
     let precos = [];
     let nAlunos = new Map();
-    let defs = [];
     let editId = null;
 
     async function carregar() {
-      const [r1, r2, r3] = await Promise.all([
+      const [r1, r2] = await Promise.all([
         sb.from("precos").select("*"),
         sb.from("aluno_planos").select("preco_id"),
-        sb.from("definicoes").select("*"),
       ]);
-      if (failed(r1.error, "Erro a carregar preços") || failed(r2.error, "Erro a carregar planos") || failed(r3.error, "Erro a carregar definições")) return;
+      if (failed(r1.error, "Erro a carregar preços") || failed(r2.error, "Erro a carregar planos")) return;
       precos = r1.data;
       nAlunos = new Map();
       for (const r of r2.data) nAlunos.set(r.preco_id, (nAlunos.get(r.preco_id) ?? 0) + 1);
-      defs = r3.data;
-      for (const d of defs) {
-        const el = $("form-def").elements[d.chave];
-        if (el) el.value = Number(d.valor);
-      }
       render();
     }
 
@@ -182,20 +150,6 @@
 
     $("filter-nivel").addEventListener("change", render);
     ligarOrdenacao(document.querySelector("table.table"), null, estadoOrdem, render);
-
-    $("form-def").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const linhas = [...$("form-def").elements]
-        .filter((el) => el.name)
-        .map((el) => ({ chave: el.name, valor: cent(el.value || 0), descricao: defs.find((d) => d.chave === el.name)?.descricao ?? null }));
-      if (linhas.find((l) => l.chave === "meses_duodecimo").valor < 1) return toast("Os meses do duodécimo têm de ser pelo menos 1.", true);
-      $("guardar-def").disabled = true;
-      const { error } = await sb.from("definicoes").upsert(linhas);
-      $("guardar-def").disabled = false;
-      if (failed(error, "Não foi possível guardar")) return;
-      toast("Regras guardadas.");
-      carregar();
-    });
 
     function abrir(p = null) {
       editId = p?.id ?? null;

@@ -191,7 +191,21 @@
           <div class="span-2">
             <div class="planos" id="planos"></div>
             <button type="button" class="btn btn--ghost btn--sm" id="plano-add">+ Adicionar plano</button>
-            <p class="small muted plano-resumo" id="plano-resumo"></p>
+            <div class="mens-opcoes">
+              <div class="field">
+                <label for="f-duo" title="O valor de junho é repartido por este n.º de mensalidades. 0 = sem duodécimos.">Meses dos duodécimos</label>
+                <input class="input" id="f-duo" name="duodecimo_meses" type="number" min="0" max="12" step="1" />
+              </div>
+              <div class="field">
+                <label for="f-descp">Desconto (%)</label>
+                <input class="input" id="f-descp" name="desconto_pct" type="number" min="0" max="100" step="1" />
+              </div>
+              <div class="field">
+                <label for="f-inscv" title="Cobrada uma vez, na 1.ª mensalidade do ano letivo. 0 = sem inscrição.">Inscrição (€)</label>
+                <input class="input" id="f-inscv" name="inscricao_valor" type="number" min="0" step="0.01" />
+              </div>
+            </div>
+            <div class="mens-conta" id="plano-resumo"></div>
           </div>
 
           <h3 class="form-section span-2">Estado e notas</h3>

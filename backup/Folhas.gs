@@ -65,7 +65,7 @@
     // ---- Alunos
     var cabAlunos = [
       "Nome", "Nome comum", "Aparece como", "Ativo", "Ano", "Ano e turma", "Escola", "Serviço", "Disciplinas no centro",
-      "Plano(s)", "Mensalidade base (€)", "Data de nascimento", "NIF", "Morada", "Código postal", "Localidade",
+      "Plano(s)", "Planos (€)", "Desconto %", "Meses duodécimo", "Inscrição (€)", "Mensalidade c/ duodécimo (€)", "Data de nascimento", "NIF", "Morada", "Código postal", "Localidade",
       "Telemóvel do aluno", "Encarregado de educação", "Parentesco", "Profissão EE", "Telemóvel EE", "Email EE",
       "Email institucional", "Password institucional", "Autoriza credenciais", "Autoriza imagem", "Autoriza saída",
       "Aceita regulamento", "Saúde / alergias", "Dificuldades", "Como conheceu", "Data de inscrição",
@@ -73,15 +73,18 @@
     ];
     var linhasAlunos = (d.alunos || []).slice().sort(porNome).map(function (a) {
       var pl = (planos[a.id] || []).map(function (i) { return planoPorId[i]; });
-      var base = pl.reduce(function (t, p) { return t + Number(p.valor || 0) * (1 - Number(p.desconto_pct || 0) / 100); }, 0);
+      var planosT = pl.reduce(function (t, p) { return t + Number(p.valor || 0); }, 0);
+      var mens = planosT * (1 - Number(a.desconto_pct || 0) / 100);
+      var meses = Number(a.duodecimo_meses || 0);
+      var mensal = Math.round((mens + (meses > 0 ? mens / meses : 0)) * 100) / 100;
       return [
         a.nome, txt(a.nome_comum), nomeAluno(a), simNao(a.ativo), txt(a.ano_escolar), txt(a.ano_turma), txt(a.escola),
         txt(a.servico), nomesDisc(discAluno[a.id]),
         pl.map(function (p) {
-          return [p.servico, p.descricao].filter(Boolean).join(" · ") + " " + Number(p.valor).toFixed(2) + "€" +
-            (Number(p.desconto_pct) ? " (-" + Number(p.desconto_pct) + "%)" : "");
+          return ([p.servico, p.descricao].filter(Boolean).join(" · ") || "Valor manual") + " " + Number(p.valor).toFixed(2) + "€";
         }).join(" + "),
-        pl.length ? Math.round(base * 100) / 100 : "",
+        pl.length ? Math.round(planosT * 100) / 100 : "", num(a.desconto_pct), num(a.duodecimo_meses), num(a.inscricao_valor),
+        pl.length ? mensal : "",
         data(a.data_nascimento), txt(a.nif), txt(a.morada), txt(a.codigo_postal), txt(a.localidade),
         txt(a.telemovel_aluno), txt(a.encarregado_nome), txt(a.encarregado_parentesco), txt(a.encarregado_profissao),
         txt(a.encarregado_telefone), txt(a.encarregado_email), txt(a.email_institucional), txt(a.password_institucional),
@@ -151,11 +154,6 @@
           return String(a.nivel).localeCompare(String(b.nivel)) || String(a.servico).localeCompare(String(b.servico)) || a.ordem - b.ordem;
         }).map(function (p) { return [p.nivel, p.servico, p.descricao, num(p.valor), simNao(p.ativo)]; })) });
     }
-    if ((d.definicoes || []).length) {
-      folhas.push({ nome: "Regras", linhas: [["Regra", "Valor", "Chave"]].concat(
-        d.definicoes.map(function (x) { return [txt(x.descricao), num(x.valor), x.chave]; })) });
-    }
-
     // ---- Registo de alterações (resumo)
     if ((d.registo_alteracoes || []).length) {
       var ACAO = { INSERT: "Criou", UPDATE: "Alterou", DELETE: "Apagou" };
@@ -174,7 +172,7 @@
   /** Tabelas a ler da base de dados (e ordem do registo, só os mais recentes). */
   var TABELAS = [
     "alunos", "professores", "salas", "disciplinas", "horario", "horario_alunos", "aluno_disciplinas",
-    "professor_disciplinas", "precos", "definicoes", "aluno_planos", "mensalidades", "registo_alteracoes",
+    "professor_disciplinas", "precos", "aluno_planos", "mensalidades", "registo_alteracoes",
   ];
 
   raiz.ADN_BACKUP = { construirFolhas: construirFolhas, TABELAS: TABELAS, nomeAluno: nomeAluno };

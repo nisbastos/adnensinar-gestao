@@ -14,7 +14,6 @@ let alunos = [];
 let aulasPorAluno = new Map(); // aluno_id → [{dia, inicio, fim, disciplina}]
 let disciplinas = [];
 let precos = [];
-let definicoes = {};
 let planosPorAluno = new Map(); // aluno_id → [plano]
 let discPorAluno = new Map(); // aluno_id → Set(disciplina_id)
 let editId = null;
@@ -33,19 +32,17 @@ const CHAVES = {
 };
 
 async function carregar() {
-  const [{ data: a, error: e1 }, { data: h, error: e2 }, { data: d, error: e3 }, { data: ad, error: e4 }, { data: pr, error: e5 }, { data: pl, error: e6 }, { data: df, error: e7 }] = await Promise.all([
+  const [{ data: a, error: e1 }, { data: h, error: e2 }, { data: d, error: e3 }, { data: ad, error: e4 }, { data: pr, error: e5 }, { data: pl, error: e6 }] = await Promise.all([
     sb.from("alunos").select("*").order("nome"),
     sb.from("horario_alunos").select("aluno_id, horario(dia_semana, hora_inicio, hora_fim, categoria, disciplina:disciplinas(nome))"),
     sb.from("disciplinas").select("*").order("ordem").order("nome"),
     sb.from("aluno_disciplinas").select("aluno_id, disciplina_id"),
     sb.from("precos").select("*").order("ordem"),
     sb.from("aluno_planos").select("*").order("created_at"),
-    sb.from("definicoes").select("chave, valor"),
   ]);
   if (failed(e1, "Erro a carregar alunos") || failed(e2, "Erro a carregar horário") || failed(e3, "Erro a carregar disciplinas") || failed(e4, "Erro a carregar disciplinas dos alunos")) return;
   // As tabelas de mensalidades podem ainda não existir (migração 007); a página funciona na mesma.
   precos = e5 ? [] : pr;
-  definicoes = e7 ? {} : Object.fromEntries(df.map((x) => [x.chave, Number(x.valor)]));
   planosPorAluno = new Map();
   for (const p of e6 ? [] : pl) {
     if (!planosPorAluno.has(p.aluno_id)) planosPorAluno.set(p.aluno_id, []);
@@ -112,7 +109,7 @@ function render() {
 function abrir(aluno = null) {
   editId = aluno?.id ?? null;
   form.reset();
-  fillForm(form, aluno ?? { ativo: true });
+  fillForm(form, aluno ?? { ativo: true, duodecimo_meses: 9, desconto_pct: 0, inscricao_valor: 40 });
   const escolhidas = discPorAluno.get(aluno?.id) ?? new Set();
   $("f-disc").innerHTML = disciplinas
     .filter((d) => d.ativo || escolhidas.has(d.id))
@@ -155,15 +152,20 @@ function opcoesPreco(plano) {
   return `<option value="">Valor manual…</option>${grupos}`;
 }
 
-function valorFinal(p) {
-  return cent(Number(p.valor || 0) * (1 - Number(p.desconto_pct || 0) / 100));
+/** Conta da mensalidade de um aluno: planos − desconto, + duodécimo, + inscrição no 1.º mês. */
+function contaMensalidade(planos, meses, descontoPct, inscricao) {
+  const planosT = cent(planos.reduce((t, p) => t + Number(p.valor || 0), 0));
+  const desconto = cent(planosT * Number(descontoPct || 0) / 100);
+  const mensalidade = cent(planosT - desconto);
+  const duodecimo = Number(meses) > 0 ? cent(mensalidade / Number(meses)) : 0;
+  return { planosT, desconto, mensalidade, duodecimo, mensal: cent(mensalidade + duodecimo), inscricao: cent(inscricao || 0) };
 }
 
 function renderPlanos() {
   if (!precos.length && !planosEdicao.length) {
     $("planos").innerHTML = `<p class="small muted">Para definir mensalidades, corre primeiro a migração 007 no Supabase.</p>`;
     $("plano-add").hidden = true;
-    $("plano-resumo").textContent = "";
+    $("plano-resumo").innerHTML = "";
     return;
   }
   $("plano-add").hidden = false;
@@ -177,22 +179,27 @@ function renderPlanos() {
         <label>Valor (€)</label>
         <input class="input" type="number" min="0" step="0.01" data-campo="valor" value="${p.valor ?? ""}" />
       </div>
-      <div class="field plano__desc">
-        <label title="Irmão mais novo: ${definicoes.desconto_irmao ?? 10}%">Desconto (%)</label>
-        <input class="input" type="number" min="0" max="100" step="1" data-campo="desconto_pct" value="${p.desconto_pct ?? 0}"
-               placeholder="${definicoes.desconto_irmao ?? 10} se irmão" />
-      </div>
       <button type="button" class="btn btn--danger btn--sm plano__rem" data-rem="${i}" aria-label="Remover plano">×</button>
     </div>`).join("") || `<p class="small muted">Sem plano — este aluno não entra na geração de mensalidades.</p>`;
-
-  const base = cent(planosEdicao.reduce((t, p) => t + valorFinal(p), 0));
-  const meses = definicoes.meses_duodecimo || 9;
-  const duo = cent(base / meses);
-  $("plano-resumo").innerHTML = planosEdicao.length
-    ? `Mensalidade <strong>${euro(base)}</strong> + duodécimo <strong>${euro(duo)}</strong> = <strong>${euro(base + duo)}</strong>/mês` +
-      ` <span class="muted">(+ inscrição no 1.º mês do ano letivo)</span>`
-    : "";
+  renderConta();
 }
+
+function renderConta() {
+  if (!planosEdicao.length) { $("plano-resumo").innerHTML = ""; return; }
+  const meses = Number($("f-duo").value || 0);
+  const descP = Number($("f-descp").value || 0);
+  const c = contaMensalidade(planosEdicao, meses, descP, Number($("f-inscv").value || 0));
+  const linha = (rot, val, cls = "") => `<div class="mens-conta__linha ${cls}"><span>${rot}</span><span>${val}</span></div>`;
+  $("plano-resumo").innerHTML =
+    linha(planosEdicao.length > 1 ? "Planos" : "Plano", euro(c.planosT)) +
+    (c.desconto ? linha(`Desconto ${descP}%`, "− " + euro(c.desconto)) : "") +
+    linha("Mensalidade", euro(c.mensalidade)) +
+    (meses > 0 ? linha(`Duodécimo (${euro(c.mensalidade)} ÷ ${meses})`, "+ " + euro(c.duodecimo)) : "") +
+    linha("Total por mês", euro(c.mensal), "is-total") +
+    (c.inscricao ? linha("1.º mês do ano letivo (+ inscrição " + euro(c.inscricao) + ")", euro(c.mensal + c.inscricao), "is-sub") : "");
+}
+
+["f-duo", "f-descp", "f-inscv"].forEach((id) => $(id).addEventListener("input", renderConta));
 
 $("planos").addEventListener("change", (e) => {
   const linha = e.target.closest(".plano");
@@ -218,7 +225,7 @@ $("planos").addEventListener("click", (e) => {
 });
 
 $("plano-add").addEventListener("click", () => {
-  planosEdicao.push({ preco_id: null, valor: null, desconto_pct: 0 });
+  planosEdicao.push({ preco_id: null, valor: null });
   renderPlanos();
 });
 
@@ -249,7 +256,7 @@ async function guardarPlanos(alunoId) {
       servico: p.servico ?? null,
       descricao: p.descricao ?? null,
       valor: Number(p.valor || 0),
-      desconto_pct: Number(p.desconto_pct || 0),
+      desconto_pct: 0,
     };
     if (p.id) {
       const orig = antes.find((x) => x.id === p.id);

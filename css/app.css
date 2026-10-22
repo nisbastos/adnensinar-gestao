@@ -416,7 +416,7 @@ table.table {
 .planos { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
 .plano {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px 110px auto;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
   gap: 10px;
   align-items: end;
   padding: 10px;
@@ -424,7 +424,13 @@ table.table {
   background: var(--c-bg);
 }
 .plano__rem { height: 38px; }
-.plano-resumo { margin: 10px 0 0; }
+.mens-opcoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.mens-conta { margin-top: 12px; border: 1px solid var(--c-line); border-radius: 12px; padding: 8px 14px; font-size: 14px; }
+.mens-conta:empty { display: none; }
+.mens-conta__linha { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-variant-numeric: tabular-nums; }
+.mens-conta__linha.is-total { border-top: 1px solid var(--c-line); margin-top: 4px; padding-top: 8px; font-weight: 700; }
+.mens-conta__linha.is-sub { color: var(--c-mid); font-size: 13px; }
+@media (max-width: 560px) { .mens-opcoes { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) {
   .plano { grid-template-columns: 1fr 1fr; }
   .plano__preco { grid-column: 1 / -1; }
