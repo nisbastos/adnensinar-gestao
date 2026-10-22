@@ -311,7 +311,7 @@ table.table {
 
 .table--compact th, .table--compact td { padding: 10px 10px; }
 .table--compact td { overflow-wrap: anywhere; }
-.table--compact .col-nome { min-width: 120px; max-width: 170px; }
+.table--compact .col-nome { min-width: 140px; max-width: 190px; overflow-wrap: normal; word-break: normal; }
 
 .muted { color: var(--c-mid); }
 .nowrap { white-space: nowrap; }

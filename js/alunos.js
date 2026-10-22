@@ -88,7 +88,7 @@ function render() {
         : a.autoriza_saida ? `<span class="badge badge--green">Sim</span>` : `<span class="badge badge--pink">Não</span>`;
       return `
         <tr data-id="${a.id}">
-          <td class="col-nome" title="${esc(a.nome)}"><strong>${esc(nomeCurto(a.nome))}</strong>${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
+          <td class="col-nome"><strong>${esc(a.nome)}</strong>${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
           <td class="nowrap">${esc(a.ano_escolar) || vazio}</td>
           <td class="small">${esc(a.telemovel_aluno) || vazio}</td>
           <td>${esc(a.encarregado_nome) || vazio}</td>
