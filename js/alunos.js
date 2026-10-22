@@ -1,4 +1,4 @@
-import { ordenar, ligarOrdenacao, sincronizar, euro, cent, nivelDoAno, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, ANOS, DIAS_CURTOS, hhmm } from "./app.js";
+import { textoAluno, nomeAluno, ordenar, ligarOrdenacao, sincronizar, euro, cent, nivelDoAno, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, ANOS, DIAS_CURTOS, hhmm } from "./app.js";
 
 await requireAuth();
 
@@ -67,12 +67,6 @@ async function carregar() {
   render();
 }
 
-/** "Maria Inês Costa Silva" → "Maria Silva" (o nome completo fica na ficha e ao passar o rato). */
-const nomeCurto = (nome) => {
-  const w = String(nome ?? "").trim().split(/\s+/);
-  return w.length > 2 ? `${w[0]} ${w[w.length - 1]}` : w.join(" ");
-};
-
 const nomesDisc = (alunoId) =>
   disciplinas.filter((d) => discPorAluno.get(alunoId)?.has(d.id)).map((d) => d.nome).join(", ");
 
@@ -84,7 +78,7 @@ function render() {
     if (estado === "ativos" && !a.ativo) return false;
     if (estado === "inativos" && a.ativo) return false;
     if (!q) return true;
-    return norm([a.nome, a.escola, a.encarregado_nome, a.encarregado_email, nomesDisc(a.id), a.nif, a.localidade, a.ano_turma].join(" ")).includes(q);
+    return norm([textoAluno(a), a.escola, a.encarregado_nome, a.encarregado_email, nomesDisc(a.id), a.nif, a.localidade, a.ano_turma].join(" ")).includes(q);
   });
 
   $("contagem").textContent = `${filtrados.length} ${filtrados.length === 1 ? "aluno" : "alunos"}`;
@@ -102,7 +96,7 @@ function render() {
         : a.autoriza_saida ? `<span class="badge badge--green">Sim</span>` : `<span class="badge badge--pink">Não</span>`;
       return `
         <tr data-id="${a.id}">
-          <td class="col-nome"><strong>${esc(a.nome)}</strong>${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
+          <td class="col-nome"><strong>${esc(a.nome)}</strong>${a.nome_comum ? `<div class="small muted">“${esc(a.nome_comum)}”</div>` : ""}${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
           <td class="nowrap">${esc(a.ano_escolar) || vazio}</td>
           <td class="small">${esc(a.telemovel_aluno) || vazio}</td>
           <td>${esc(a.encarregado_nome) || vazio}</td>
@@ -125,6 +119,7 @@ function abrir(aluno = null) {
     .map((d) => `<label class="chip"><input type="checkbox" data-multi="1" value="${d.id}" ${escolhidas.has(d.id) ? "checked" : ""} /><span>${esc(d.nome)}</span></label>`)
     .join("") || `<span class="muted small">Sem disciplinas — cria-as na página Disciplinas.</span>`;
   planosEdicao = (planosPorAluno.get(aluno?.id) ?? []).map((p) => ({ ...p }));
+  atualizarMostra();
   renderPlanos();
   $("modal-title").textContent = aluno ? "Editar aluno" : "Novo aluno";
   $("f-pinst").type = "password";
@@ -226,6 +221,13 @@ $("plano-add").addEventListener("click", () => {
   planosEdicao.push({ preco_id: null, valor: null, desconto_pct: 0 });
   renderPlanos();
 });
+
+// Pré-visualização do nome que aparece no resto do site.
+const atualizarMostra = () => {
+  $("f-mostra").textContent = nomeAluno({ nome: $("f-nome").value, nome_comum: $("f-comum").value }) || "—";
+};
+$("f-nome").addEventListener("input", atualizarMostra);
+$("f-comum").addEventListener("input", atualizarMostra);
 
 // O nível (ciclo) depende do ano escolar: ao mudar o ano, as opções de preço mudam.
 $("f-ano").addEventListener("change", renderPlanos);

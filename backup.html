@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Backup | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="js/backup-folhas.js"></script>
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Backup</h1>
+    </div>
+
+    <section class="card painel" style="max-width:820px; margin-bottom:20px">
+      <div class="painel__head"><h2>Descarregar agora</h2></div>
+      <p>
+        Gera um ficheiro Excel com todos os dados: alunos (todos os campos), mensalidades, horário, professores,
+        salas, disciplinas, preços, regras e as últimas alterações registadas. Os nomes aparecem por extenso (não códigos).
+      </p>
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn" id="descarregar">Descarregar Excel</button>
+        <span class="small muted" id="estado"></span>
+      </div>
+      <p class="small muted" style="margin-top:12px">
+        O ficheiro inclui dados pessoais de menores, saúde e passwords institucionais. Guarda-o apenas num sítio privado
+        (por exemplo, a Drive do ADN) e não o envies por email.
+      </p>
+    </section>
+
+    <section class="card painel" style="max-width:820px">
+      <div class="painel__head"><h2>Backup automático diário</h2></div>
+      <p>
+        Para não depender do site, um script na Google Drive do ADN cria todos os dias um Excel igual a este numa pasta
+        da Drive e guarda os últimos 30. Funciona mesmo que o site esteja em baixo, porque lê diretamente a base de dados.
+      </p>
+      <p>
+        Instruções e código: ficheiro <code>backup/README.md</code> no repositório.
+      </p>
+    </section>
+  </main>
+
+  <script type="module">
+    import { sb, requireAuth, toast, failed, isoLocal } from "./js/app.js";
+
+    await requireAuth();
+    const $ = (id) => document.getElementById(id);
+
+    const POR_PEDIDO = 1000;   // limite do Supabase por pedido
+    const MAX_REGISTO = 5000;  // últimas alterações a incluir
+
+    async function lerTudo(tabela) {
+      const linhas = [];
+      for (let de = 0; ; de += POR_PEDIDO) {
+        let q = sb.from(tabela).select("*").range(de, de + POR_PEDIDO - 1);
+        if (tabela === "registo_alteracoes") q = q.order("quando", { ascending: false });
+        const { data, error } = await q;
+        if (error) {
+          // Tabelas de migrações ainda não corridas são ignoradas.
+          if (/does not exist|schema cache/i.test(error.message)) return [];
+          throw new Error(`${tabela}: ${error.message}`);
+        }
+        linhas.push(...data);
+        if (data.length < POR_PEDIDO) break;
+        if (tabela === "registo_alteracoes" && linhas.length >= MAX_REGISTO) break;
+      }
+      return linhas;
+    }
+
+    $("descarregar").addEventListener("click", async () => {
+      const btn = $("descarregar");
+      btn.disabled = true;
+      try {
+        const dados = {};
+        for (const t of ADN_BACKUP.TABELAS) {
+          $("estado").textContent = `A ler ${t}…`;
+          dados[t] = await lerTudo(t);
+        }
+        $("estado").textContent = "A criar o ficheiro…";
+        const wb = XLSX.utils.book_new();
+        for (const f of ADN_BACKUP.construirFolhas(dados)) {
+          const ws = XLSX.utils.aoa_to_sheet(f.linhas);
+          // Largura das colunas pelo conteúdo (máx. 50 caracteres).
+          ws["!cols"] = f.linhas[0].map((_, c) => ({
+            wch: Math.min(50, Math.max(8, ...f.linhas.slice(0, 200).map((l) => String(l[c] ?? "").length))),
+          }));
+          ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: f.linhas[0].length - 1 } }) };
+          XLSX.utils.book_append_sheet(wb, ws, f.nome.slice(0, 31));
+        }
+        XLSX.writeFile(wb, `ADN Gestão - Backup ${isoLocal(new Date())}.xlsx`);
+        $("estado").textContent = `Feito: ${dados.alunos.length} alunos, ${dados.mensalidades.length} mensalidades, ${dados.horario.length} aulas.`;
+      } catch (e) {
+        failed(e, "Não foi possível criar o backup");
+        $("estado").textContent = "";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

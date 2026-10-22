@@ -1,5 +1,5 @@
 import {
-  sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal,
+  nomeAluno, textoAluno, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal,
   ordenar, ligarOrdenacao, euro, cent, inicioMes, isoLocal, nomeMes, anoLetivo,
 } from "./app.js";
 
@@ -45,7 +45,7 @@ const inicioAnoLetivo = (iso) => `${anoLetivo(iso).slice(0, 4)}-09-01`;
 
 async function carregar() {
   const [r1, r2, r3, r4, r5] = await Promise.all([
-    sb.from("alunos").select("id, nome, ano_escolar, ativo, data_inscricao"),
+    sb.from("alunos").select("id, nome, nome_comum, ano_escolar, ativo, data_inscricao"),
     sb.from("aluno_planos").select("*"),
     sb.from("definicoes").select("chave, valor"),
     sb.from("mensalidades").select("*").eq("mes", mes),
@@ -90,7 +90,7 @@ const recebido = (l) =>
 const estadoOrdem = { chave: "aluno", dir: "asc" };
 const ORDEM_ESTADOS = { "Em atraso": 0, "Por pagar": 1, Parcial: 2, Pago: 3, Isento: 4 };
 const CHAVES = {
-  aluno: (l) => alunoPorId(l.aluno_id)?.nome,
+  aluno: (l) => nomeAluno(alunoPorId(l.aluno_id)),
   plano: (l) => descPlano(l.aluno_id),
   mensalidade: (l) => Number(l.mensalidade),
   duodecimo: (l) => Number(l.duodecimo),
@@ -135,7 +135,7 @@ function render() {
   const q = norm($("search").value);
   const f = $("filter-estado").value;
   const visiveis = ordenar(
-    linhas.filter((l) => (!q || norm(alunoPorId(l.aluno_id)?.nome).includes(q)) && (!f || estadoVisivel(l) === f)),
+    linhas.filter((l) => (!q || norm(textoAluno(alunoPorId(l.aluno_id))).includes(q)) && (!f || estadoVisivel(l) === f)),
     estadoOrdem, CHAVES
   );
 
@@ -151,7 +151,7 @@ function render() {
     const est = estadoVisivel(l);
     return `
       <tr data-id="${l.id}">
-        <td class="col-nome"><strong>${esc(a?.nome ?? "(aluno apagado)")}</strong>${a && !a.ativo ? ' <span class="badge badge--off">Inativo</span>' : ""}</td>
+        <td class="col-nome"><strong>${esc(a ? nomeAluno(a) : "(aluno apagado)")}</strong>${a && !a.ativo ? ' <span class="badge badge--off">Inativo</span>' : ""}</td>
         <td class="small">${esc(descPlano(l.aluno_id)) || vazio}</td>
         <td class="num">${euro(l.mensalidade)}</td>
         <td class="num">${euro(l.duodecimo)}</td>
@@ -256,7 +256,7 @@ function abrir(l) {
   editId = l.id;
   form.reset();
   fillForm(form, l);
-  $("modal-title").textContent = alunoPorId(l.aluno_id)?.nome ?? "Mensalidade";
+  $("modal-title").textContent = nomeAluno(alunoPorId(l.aluno_id)) || "Mensalidade";
   $("modal-sub").textContent = `${nomeMes(l.mes)}${descPlano(l.aluno_id) ? " · " + descPlano(l.aluno_id) : ""}`;
   atualizarTotal();
   modal.showModal();

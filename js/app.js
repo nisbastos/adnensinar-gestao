@@ -42,6 +42,7 @@ const CONFIG = [
   { href: "disciplinas.html", label: "Disciplinas" },
   { href: "precos.html", label: "Preços" },
   { href: "registo.html", label: "Registo de alterações" },
+  { href: "backup.html", label: "Backup" },
 ];
 
 /** Garante sessão iniciada; se não houver, volta ao login. Devolve o utilizador. */
@@ -293,3 +294,24 @@ export async function sincronizar(tabela, campoDono, idDono, campoOutro, novosId
   }
   return null;
 }
+
+
+// Nomes dos alunos ---------------------------------------------------------------
+
+/**
+ * Nome a mostrar: o nome comum (ou o primeiro nome) + o apelido.
+ * "José André Silva" com nome comum "André" → "André Silva".
+ */
+export function nomeAluno(a) {
+  if (!a?.nome) return "";
+  const w = String(a.nome).trim().split(/\s+/);
+  const apelido = w.length > 1 ? w[w.length - 1] : "";
+  const comum = String(a.nome_comum ?? "").trim();
+  if (!comum) return [w[0], apelido].filter(Boolean).join(" ");
+  // Se o nome comum já termina no apelido (ex.: "Zé Silva"), não o repete.
+  if (apelido && norm(comum).split(/\s+/).pop() === norm(apelido)) return comum;
+  return [comum, apelido].filter(Boolean).join(" ");
+}
+
+/** Texto para pesquisa: nome completo + nome comum. */
+export const textoAluno = (a) => `${a?.nome ?? ""} ${a?.nome_comum ?? ""}`;

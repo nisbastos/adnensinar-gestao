@@ -1,4 +1,4 @@
-import { sincronizar, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, hhmm, toMin, DIAS, DIAS_CURTOS } from "./app.js";
+import { sincronizar, nomeAluno, textoAluno, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, hhmm, toMin, DIAS, DIAS_CURTOS } from "./app.js";
 
 await requireAuth();
 
@@ -41,7 +41,7 @@ async function carregar() {
   const [r1, r2, r3, r4, r5] = await Promise.all([
     sb.from("horario").select("*, horario_alunos(aluno_id)").order("hora_inicio"),
     sb.from("professores").select("*").order("nome"),
-    sb.from("alunos").select("id, nome, ano_escolar, ativo").order("nome"),
+    sb.from("alunos").select("id, nome, nome_comum, ano_escolar, ativo").order("nome"),
     sb.from("salas").select("*").order("ordem").order("nome"),
     sb.from("disciplinas").select("*").order("ordem").order("nome"),
   ]);
@@ -106,11 +106,6 @@ const profCurto = (p) => (p ? `Prof. ${String(p.nome).trim().split(/\s+/)[0]}` :
 const porAssociar = (a) =>
   (a.notas?.match(/Alunos por associar:\s*(.+)/)?.[1] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 
-/** "Maria Inês Costa Silva" → "Maria Silva" */
-const nomeCurto = (nome) => {
-  const w = String(nome ?? "").trim().split(/\s+/);
-  return w.length > 1 ? `${w[0]} ${w[w.length - 1]}` : w[0];
-};
 
 // ---------- Grelha ----------
 
@@ -147,7 +142,7 @@ function filtradas() {
   return aulas.filter((a) => {
     if (prof === "__none" && a.professor_id) return false;
     if (prof && prof !== "__none" && a.professor_id !== prof) return false;
-    if (q && !a.alunos.some((id) => norm(alunoPorId(id)?.nome).includes(q))) return false;
+    if (q && !a.alunos.some((id) => norm(textoAluno(alunoPorId(id))).includes(q))) return false;
     return true;
   });
 }
@@ -231,7 +226,7 @@ function render() {
         const w = 100 / n;
         const apoio = a.categoria === "Apoio ao Estudo";
         const nomes = [
-          ...a.alunos.map((id) => (apoio ? alunoPorId(id)?.nome?.split(" ")[0] : nomeCurto(alunoPorId(id)?.nome))).filter(Boolean),
+          ...a.alunos.map((id) => nomeAluno(alunoPorId(id))).filter(Boolean),
           ...porAssociar(a),
         ];
         const titulo = discPorId(a.disciplina_id)?.nome || a.categoria || "Aula";
@@ -359,14 +354,14 @@ let selecionados = new Set();
 
 function renderPick() {
   const q = norm($("f-pick-search").value);
-  const lista = alunos.filter((a) => (a.ativo || selecionados.has(a.id)) && (!q || norm(a.nome).includes(q)));
+  const lista = alunos.filter((a) => (a.ativo || selecionados.has(a.id)) && (!q || norm(textoAluno(a)).includes(q)));
   // selecionados primeiro
   lista.sort((a, b) => selecionados.has(b.id) - selecionados.has(a.id) || a.nome.localeCompare(b.nome, "pt"));
   $("pick-list").innerHTML = lista.length
     ? lista.map((a) => `
         <label class="check">
           <input type="checkbox" data-multi="1" value="${a.id}" ${selecionados.has(a.id) ? "checked" : ""} />
-          ${esc(a.nome)} ${a.ano_escolar ? `<span class="muted small">${esc(a.ano_escolar)}</span>` : ""}
+          ${esc(a.nome)}${a.nome_comum ? ` <span class="muted small">(${esc(a.nome_comum)})</span>` : ""} ${a.ano_escolar ? `<span class="muted small">${esc(a.ano_escolar)}</span>` : ""}
         </label>`).join("")
     : `<div class="muted small" style="padding:8px">${alunos.length ? "Nenhum aluno encontrado." : "Ainda não há alunos — cria-os na página Alunos."}</div>`;
   $("pick-count").textContent = selecionados.size ? `(${selecionados.size} selecionado${selecionados.size > 1 ? "s" : ""})` : "";
@@ -410,7 +405,7 @@ function conflitos(dados) {
       avisos.push(`${salaPorId(a.sala_id)?.nome} já está ocupada das ${quando}.`);
     }
     for (const id of a.alunos) {
-      if (selecionados.has(id)) avisos.push(`${alunoPorId(id)?.nome} já está numa aula das ${quando}.`);
+      if (selecionados.has(id)) avisos.push(`${nomeAluno(alunoPorId(id))} já está numa aula das ${quando}.`);
     }
   }
   return avisos;

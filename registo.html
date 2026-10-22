@@ -48,7 +48,7 @@
   </main>
 
   <script type="module">
-    import { sb, requireAuth, esc, failed, norm, DIAS, euro, nomeMes } from "./js/app.js";
+    import { sb, requireAuth, esc, failed, norm, DIAS, euro, nomeMes, nomeAluno } from "./js/app.js";
 
     await requireAuth();
     const $ = (id) => document.getElementById(id);
@@ -62,7 +62,7 @@
     const ACAO = { INSERT: ["Criou", "badge--green"], UPDATE: ["Alterou", "badge--yellow"], DELETE: ["Apagou", "badge--pink"] };
 
     const CAMPOS = {
-      nome: "Nome", ano_escolar: "Ano", ano_turma: "Ano e turma", escola: "Escola", servico: "Serviço",
+      nome: "Nome", nome_comum: "Nome comum", ano_escolar: "Ano", ano_turma: "Ano e turma", escola: "Escola", servico: "Serviço",
       encarregado_nome: "Encarregado", encarregado_telefone: "Telemóvel EE", encarregado_email: "Email EE",
       encarregado_parentesco: "Parentesco", encarregado_profissao: "Profissão EE",
       telemovel_aluno: "Telemóvel aluno", email_institucional: "Email institucional", password_institucional: "Password institucional",
@@ -87,9 +87,13 @@
     const POR_PAGINA = 100;
 
     async function carregarNomes() {
-      const rs = await Promise.all(["alunos", "professores", "salas", "disciplinas"].map((t) => sb.from(t).select("id, nome")));
+      const rs = await Promise.all([
+        sb.from("alunos").select("id, nome, nome_comum"),
+        ...["professores", "salas", "disciplinas"].map((t) => sb.from(t).select("id, nome")),
+      ]);
       nomes = {};
-      for (const r of rs) for (const x of r.data ?? []) nomes[x.id] = x.nome;
+      for (const x of rs[0].data ?? []) nomes[x.id] = nomeAluno(x);
+      for (const r of rs.slice(1)) for (const x of r.data ?? []) nomes[x.id] = x.nome;
     }
 
     async function carregar(reset = true) {

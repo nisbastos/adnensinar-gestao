@@ -188,8 +188,8 @@ function associar(curto, lista) {
   if (!palavras.length) return null;
   const encaixa = (token, palavra) => token.endsWith(".") ? palavra.startsWith(token.slice(0, -1)) : palavra.startsWith(token);
 
-  const candidatos = lista.filter((a) => {
-    const w = norm(a.nome).split(/\s+/);
+  const encaixaNome = (nome) => {
+    const w = norm(nome).split(/\s+/);
     if (!encaixa(palavras[0], w[0])) return false;
     let i = 1;
     for (const t of palavras.slice(1)) {
@@ -197,6 +197,14 @@ function associar(curto, lista) {
       if (i >= w.length) return false;
       i++;
     }
+    return true;
+  };
+
+  const candidatos = lista.filter((a) => {
+    // Tenta o nome completo e também "nome comum + apelidos" (ex.: "André Silva" para "José André Silva").
+    const variantes = [a.nome];
+    if (a.nome_comum) variantes.push(`${a.nome_comum} ${String(a.nome).trim().split(/\s+/).slice(1).join(" ")}`);
+    if (!variantes.some(encaixaNome)) return false;
     if (ano) {
       const n = (a.ano_turma ?? a.ano_escolar ?? "").match(/\d{1,2}/)?.[0];
       if (n !== ano) return false;
@@ -216,7 +224,7 @@ $("ficheiro-horario").addEventListener("change", async (e) => {
   if (dados.formato !== "adn-horario-v1") return toast("Este ficheiro não é um horário do ADN Ensinar.", true);
 
   const [ra, rs, rp, rh, rd] = await Promise.all([
-    sb.from("alunos").select("id, nome, ano_escolar, ano_turma, ativo"),
+    sb.from("alunos").select("id, nome, nome_comum, ano_escolar, ano_turma, ativo"),
     sb.from("salas").select("*"),
     sb.from("professores").select("*"),
     sb.from("horario").select("dia_semana, hora_inicio, sala_id, categoria"),

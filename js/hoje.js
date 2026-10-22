@@ -1,5 +1,5 @@
 import {
-  sb, requireAuth, esc, failed, norm, hhmm, toMin, DIAS, MESES,
+  nomeAluno, sb, requireAuth, esc, failed, norm, hhmm, toMin, DIAS, MESES,
   euro, cent, inicioMes, nomeMes,
 } from "./app.js";
 
@@ -39,7 +39,7 @@ async function carregar() {
   const mes = inicioMes(new Date());
   const rs = await Promise.all([
     sb.from("horario").select("*, horario_alunos(aluno_id)"),
-    sb.from("alunos").select("id, nome, ativo, saude, autoriza_saida, data_nascimento"),
+    sb.from("alunos").select("id, nome, nome_comum, ativo, saude, autoriza_saida, data_nascimento"),
     sb.from("professores").select("id, nome, cor"),
     sb.from("salas").select("id, nome, ordem"),
     sb.from("disciplinas").select("id, nome"),
@@ -60,12 +60,9 @@ async function carregar() {
 // ---------- Render ----------
 
 function nomesDaAula(a) {
-  return [...a.alunos.map((id) => alunoPorId(id)?.nome).filter(Boolean), ...porAssociar(a)];
+  return [...a.alunos.map((id) => nomeAluno(alunoPorId(id))).filter(Boolean), ...porAssociar(a)];
 }
 
-function primeiroNome(n) {
-  return String(n).split(" ")[0];
-}
 
 function render() {
   const agora = new Date();
@@ -120,7 +117,7 @@ function renderAgora(lista) {
             <div class="sala-agora__aula" style="border-left-color:${esc(p?.cor ?? "#ddd")}">
               <div class="small"><strong>${esc(discPorId(a.disciplina_id)?.nome ?? a.categoria ?? "Aula")}</strong> · até ${hhmm(a.hora_fim)}</div>
               ${p ? `<div class="small"><strong>${esc(profCurto(p))}</strong></div>` : ""}
-              <div class="small muted">${nomesDaAula(a).map((n) => esc(primeiroNome(n))).join(", ") || "Sem alunos"}</div>
+              <div class="small muted">${nomesDaAula(a).map((n) => esc(n)).join(", ") || "Sem alunos"}</div>
             </div>`;
         }).join("")}
       </div>`;
@@ -159,7 +156,7 @@ function renderAulas(doDia, minAgora) {
             salaPorId(a.sala_id) ? esc(salaPorId(a.sala_id).nome) : null,
             p ? `<strong>${esc(profCurto(p))}</strong>` : null,
           ].filter(Boolean).join(" · ")}</div>
-          <div class="small muted">${nomes.length ? (apoio ? `${nomes.length} alunos: ` : "") + nomes.map((n) => esc(apoio ? primeiroNome(n) : n)).join(", ") : "Sem alunos"}</div>
+          <div class="small muted">${nomes.length ? (apoio ? `${nomes.length} alunos: ` : "") + nomes.map((n) => esc(n)).join(", ") : "Sem alunos"}</div>
         </div>
       </li>`;
   }).join("")}</ul>`;
@@ -178,12 +175,12 @@ function renderAlertas(doDia) {
   if (saude.length) blocos.push(`
     <div class="alerta">
       <div class="alerta__titulo">Saúde / alergias <span class="muted">(${saude.length})</span></div>
-      <ul>${saude.map((a) => `<li><strong>${esc(a.nome)}</strong><br><span class="small">${esc(a.saude)}</span></li>`).join("")}</ul>
+      <ul>${saude.map((a) => `<li><strong>${esc(nomeAluno(a))}</strong><br><span class="small">${esc(a.saude)}</span></li>`).join("")}</ul>
     </div>`);
   if (semSaida.length) blocos.push(`
     <div class="alerta">
       <div class="alerta__titulo">Sem autorização para sair <span class="muted">(${semSaida.length})</span></div>
-      <ul>${semSaida.map((a) => `<li>${esc(a.nome)}</li>`).join("")}</ul>
+      <ul>${semSaida.map((a) => `<li>${esc(nomeAluno(a))}</li>`).join("")}</ul>
     </div>`);
   if (semProf.length || semSala.length || nPorAssociar) blocos.push(`
     <div class="alerta alerta--leve">
@@ -214,7 +211,7 @@ function renderAniversarios(agora) {
   $("aniversarios").innerHTML = proximos.length
     ? `<ul class="lista-simples">${proximos.map(({ a, dias, idade, data }) => `
         <li>
-          <span><strong>${esc(a.nome)}</strong> <span class="muted small">faz ${idade}</span></span>
+          <span><strong>${esc(nomeAluno(a))}</strong> <span class="muted small">faz ${idade}</span></span>
           <span class="badge ${dias === 0 ? "badge--pink" : ""}">${dias === 0 ? "Hoje" : dias === 1 ? "Amanhã" : `${data.getDate()}/${data.getMonth() + 1}`}</span>
         </li>`).join("")}</ul>`
     : `<p class="muted">Nenhum nos próximos 7 dias.</p>`;
@@ -246,7 +243,7 @@ function renderMensalidades(agora) {
     ${atraso.length ? `
       <div class="alerta" style="margin-top:12px">
         <div class="alerta__titulo">Em atraso <span class="muted">(${atraso.length})</span></div>
-        <ul>${atraso.slice(0, 6).map((m) => `<li>${esc(alunoPorId(m.aluno_id)?.nome ?? "—")} · ${euro(m.total)}</li>`).join("")}
+        <ul>${atraso.slice(0, 6).map((m) => `<li>${esc(nomeAluno(alunoPorId(m.aluno_id)) || "—")} · ${euro(m.total)}</li>`).join("")}
         ${atraso.length > 6 ? `<li class="muted">e mais ${atraso.length - 6}…</li>` : ""}</ul>
       </div>` : ""}`;
 }
