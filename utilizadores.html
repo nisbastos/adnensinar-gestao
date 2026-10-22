@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Utilizadores | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Utilizadores</h1>
+    </div>
+
+    <div class="card table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th data-sort="nome">Nome</th>
+            <th data-sort="email">Email</th>
+            <th data-sort="perfil">Perfil</th>
+            <th data-sort="financas" data-dir="desc">Vê mensalidades</th>
+            <th data-sort="ativo" data-dir="desc">Estado</th>
+          </tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div class="empty" id="vazio" hidden>Corre a migração 010 no Supabase para ativar os perfis.</div>
+    </div>
+
+    <section class="card painel" style="margin-top:20px; max-width:820px">
+      <div class="painel__head"><h2>Dar acesso a uma pessoa nova</h2></div>
+      <ol class="passos">
+        <li>No Supabase: <strong>Authentication → Users → Add user → Create new user</strong>.
+          Escreve o email e uma password temporária e marca <em>Auto Confirm User</em>.</li>
+        <li>A pessoa aparece aqui automaticamente como <strong>Gestão</strong>, sem acesso a mensalidades.
+          Clica nela para pôr o nome e ajustar o perfil.</li>
+        <li>Envia-lhe o endereço do site, o email e a password temporária. Depois de entrar, ela muda a password
+          clicando no próprio nome, no canto superior direito.</li>
+      </ol>
+      <div class="perfis">
+        <div>
+          <span class="badge">Admin</span>
+          <p class="small">Tudo: alunos, horário, mensalidades, configuração, utilizadores, registo de alterações,
+            backup e importação. Pode apagar.</p>
+        </div>
+        <div>
+          <span class="badge badge--green">Gestão</span>
+          <p class="small">Hoje, Horário e Alunos (ver, criar e editar, incluindo saúde e credenciais). Não apaga e não vê
+            Configuração, Registo, Backup nem Importar. Com "Vê mensalidades": também Mensalidades e o plano na ficha do aluno.</p>
+        </div>
+      </div>
+      <p class="small muted" style="margin-bottom:0">Para tirar o acesso a alguém, desativa-o aqui (deixa de conseguir entrar) ou apaga o login no Supabase.</p>
+    </section>
+  </main>
+
+  <dialog class="modal" id="modal">
+    <form id="form" method="dialog" novalidate>
+      <div class="modal__head">
+        <h2 id="modal-title">Utilizador</h2>
+        <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="modal__body">
+        <p class="muted small" id="modal-email" style="margin-top:0"></p>
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="f-nome">Nome</label>
+            <input class="input" id="f-nome" name="nome" placeholder="ex.: Liliana" />
+          </div>
+          <div class="field">
+            <label for="f-perfil">Perfil</label>
+            <select class="select" id="f-perfil" name="perfil">
+              <option value="gestao">Gestão</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <label class="check"><input type="checkbox" name="ver_financas" id="f-fin" /> Vê mensalidades</label>
+          </div>
+          <label class="check span-2"><input type="checkbox" name="ativo" id="f-ativo" /> Conta ativa (pode entrar)</label>
+        </div>
+        <p class="small muted" id="aviso-proprio" hidden>É a tua conta: não podes tirar-te o perfil de Admin nem desativar-te.</p>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn" id="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal, ordenar, ligarOrdenacao } from "./js/app.js";
+
+    const eu = await requireAuth();
+    const $ = (id) => document.getElementById(id);
+    const modal = $("modal");
+    const form = $("form");
+    wireModal(modal);
+
+    let lista = [];
+    let editId = null;
+
+    const estadoOrdem = { chave: "nome", dir: "asc" };
+    const CHAVES = {
+      nome: (u) => u.nome || u.email, email: (u) => u.email, perfil: (u) => u.perfil,
+      financas: (u) => u.perfil === "admin" || u.ver_financas, ativo: (u) => u.ativo,
+    };
+
+    async function carregar() {
+      const { data, error } = await sb.from("utilizadores").select("*");
+      if (error) { $("vazio").hidden = false; return; }
+      lista = data;
+      render();
+    }
+
+    function render() {
+      $("vazio").hidden = lista.length > 0;
+      $("lista").innerHTML = ordenar(lista, estadoOrdem, CHAVES).map((u) => `
+        <tr data-id="${u.id}">
+          <td><strong>${esc(u.nome) || '<span class="muted">(sem nome)</span>'}</strong>${u.id === eu.id ? ' <span class="muted small">(tu)</span>' : ""}</td>
+          <td>${esc(u.email)}</td>
+          <td><span class="badge ${u.perfil === "admin" ? "" : "badge--green"}">${u.perfil === "admin" ? "Admin" : "Gestão"}</span></td>
+          <td>${u.perfil === "admin" || u.ver_financas ? "Sim" : '<span class="muted">Não</span>'}</td>
+          <td>${u.ativo ? '<span class="badge badge--green">Ativa</span>' : '<span class="badge badge--off">Desativada</span>'}</td>
+        </tr>`).join("");
+    }
+
+    ligarOrdenacao(document.querySelector("table.table"), null, estadoOrdem, render);
+
+    function sincronizarCampos() {
+      const admin = $("f-perfil").value === "admin";
+      $("f-fin").disabled = admin;
+      if (admin) $("f-fin").checked = true;
+    }
+    $("f-perfil").addEventListener("change", sincronizarCampos);
+
+    function abrir(u) {
+      editId = u.id;
+      form.reset();
+      fillForm(form, u);
+      $("modal-title").textContent = u.nome || "Utilizador";
+      $("modal-email").textContent = u.email;
+      const proprio = u.id === eu.id;
+      $("f-perfil").disabled = proprio;
+      $("f-ativo").disabled = proprio;
+      $("aviso-proprio").hidden = !proprio;
+      sincronizarCampos();
+      modal.showModal();
+    }
+
+    $("lista").addEventListener("click", (e) => {
+      const tr = e.target.closest("tr[data-id]");
+      if (tr) abrir(lista.find((u) => u.id === tr.dataset.id));
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const d = {
+        nome: $("f-nome").value.trim() || null,
+        perfil: $("f-perfil").value,
+        ver_financas: $("f-perfil").value === "admin" || $("f-fin").checked,
+        ativo: $("f-ativo").checked,
+      };
+      if (editId === eu.id) { d.perfil = "admin"; d.ativo = true; }
+      $("guardar").disabled = true;
+      const { error } = await sb.from("utilizadores").update(d).eq("id", editId);
+      $("guardar").disabled = false;
+      if (failed(error, "Não foi possível guardar")) return;
+      modal.close();
+      toast("Guardado.");
+      carregar();
+    });
+
+    carregar();
+  </script>
+</body>
+</html>

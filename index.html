@@ -39,6 +39,9 @@
 
     const form = document.getElementById("login-form");
     const err = document.getElementById("login-error");
+    if (new URLSearchParams(location.search).has("sem-acesso")) {
+      err.textContent = "Esta conta não tem acesso ou foi desativada. Fala com a administração.";
+    }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();

@@ -57,12 +57,12 @@
       alunos: "Alunos", professores: "Professores", salas: "Salas", disciplinas: "Disciplinas",
       horario: "Horário", horario_alunos: "Horário · alunos", aluno_disciplinas: "Alunos · disciplinas",
       professor_disciplinas: "Professores · disciplinas", mensalidades: "Mensalidades",
-      aluno_planos: "Planos de mensalidade", precos: "Preços", definicoes: "Regras das mensalidades",
+      aluno_planos: "Planos de mensalidade", precos: "Preços", definicoes: "Regras das mensalidades", utilizadores: "Utilizadores",
     };
     const ACAO = { INSERT: ["Criou", "badge--green"], UPDATE: ["Alterou", "badge--yellow"], DELETE: ["Apagou", "badge--pink"] };
 
     const CAMPOS = {
-      nome: "Nome", nome_comum: "Nome comum", ano_escolar: "Ano", ano_turma: "Ano e turma", escola: "Escola", servico: "Serviço",
+      nome: "Nome", nome_comum: "Nome comum", perfil: "Perfil", ver_financas: "Vê mensalidades", ano_escolar: "Ano", ano_turma: "Ano e turma", escola: "Escola", servico: "Serviço",
       encarregado_nome: "Encarregado", encarregado_telefone: "Telemóvel EE", encarregado_email: "Email EE",
       encarregado_parentesco: "Parentesco", encarregado_profissao: "Profissão EE",
       telemovel_aluno: "Telemóvel aluno", email_institucional: "Email institucional", password_institucional: "Password institucional",
@@ -148,6 +148,7 @@
         case "mensalidades": return `${nomeDe(r.aluno_id)} · ${r.mes ? nomeMes(r.mes) : ""}`;
         case "aluno_planos": return `${nomeDe(r.aluno_id)} · ${[r.servico, r.descricao].filter(Boolean).join(" ") || "valor manual"}`;
         case "precos": return `${r.nivel} · ${r.servico} · ${r.descricao}`;
+        case "utilizadores": return r.nome || r.email || "—";
         case "definicoes": return CAMPOS[r.chave] ?? r.descricao ?? r.chave;
         default: return r.nome ?? l.registo_id ?? "—";
       }

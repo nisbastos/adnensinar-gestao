@@ -31,8 +31,8 @@ const NAV = [
   { href: "hoje.html", label: "Hoje" },
   { href: "horario.html", label: "Horário" },
   { href: "alunos.html", label: "Alunos" },
-  { href: "mensalidades.html", label: "Mensalidades" },
-  { href: "professores.html", label: "Configuração", grupo: "config" },
+  { href: "mensalidades.html", label: "Mensalidades", acesso: "financas" },
+  { href: "professores.html", label: "Configuração", grupo: "config", acesso: "admin" },
 ];
 
 // Páginas dentro de "Configuração" (mostradas como separadores secundários)
@@ -41,20 +41,66 @@ const CONFIG = [
   { href: "salas.html", label: "Salas" },
   { href: "disciplinas.html", label: "Disciplinas" },
   { href: "precos.html", label: "Preços" },
+  { href: "utilizadores.html", label: "Utilizadores" },
   { href: "registo.html", label: "Registo de alterações" },
   { href: "backup.html", label: "Backup" },
 ];
 
-/** Garante sessão iniciada; se não houver, volta ao login. Devolve o utilizador. */
+// Quem pode abrir cada página (as regras reais estão na base de dados — isto só evita páginas vazias).
+const ACESSO = {
+  "mensalidades.html": "financas",
+  "importar.html": "admin",
+  ...Object.fromEntries(CONFIG.map((c) => [c.href, "admin"])),
+};
+
+/** Perfil de quem tem sessão iniciada: { admin, financas, nome, email }. */
+export let perfil = { admin: false, financas: false, nome: "", email: "" };
+
+async function carregarPerfil(user) {
+  const { data, error } = await sb.from("utilizadores").select("*").eq("id", user.id).maybeSingle();
+  if (error) {
+    // Antes da migração 010 não há perfis: quem entra é a administração.
+    if (/utilizadores|schema cache|does not exist/i.test(error.message)) {
+      return { admin: true, financas: true, nome: "", email: user.email };
+    }
+    throw error;
+  }
+  if (!data || !data.ativo) return null;
+  return {
+    admin: data.perfil === "admin",
+    financas: data.perfil === "admin" || data.ver_financas,
+    nome: data.nome ?? "",
+    email: user.email,
+  };
+}
+
+const pode = (acesso) => !acesso || (acesso === "admin" ? perfil.admin : acesso === "financas" ? perfil.financas : true);
+
+/** Garante sessão iniciada e permissão para a página; se não, volta ao login ou à página Hoje. */
 export async function requireAuth() {
+  const parar = () => new Promise(() => {}); // pára a execução da página
   const { data } = await sb.auth.getSession();
   if (!data.session) {
     window.location.replace("index.html");
-    return new Promise(() => {}); // pára a execução da página
+    return parar();
+  }
+  const p = await carregarPerfil(data.session.user);
+  if (!p) {
+    await sb.auth.signOut();
+    window.location.replace("index.html?sem-acesso=1");
+    return parar();
+  }
+  perfil = p;
+  const here = location.pathname.split("/").pop() || "hoje.html";
+  if (!pode(ACESSO[here])) {
+    window.location.replace("hoje.html");
+    return parar();
   }
   sb.auth.onAuthStateChange((event, session) => {
     if (!session) window.location.replace("index.html");
   });
+  document.body.classList.add(perfil.admin ? "perfil-admin" : "perfil-gestao");
+  if (!perfil.financas) document.body.classList.add("sem-financas");
   renderHeader(data.session.user);
   return data.session.user;
 }
@@ -73,13 +119,14 @@ function renderHeader(user) {
         </span>
       </a>
       <nav class="nav" aria-label="Navegação principal">
-        ${NAV.map((n) => {
+        ${NAV.filter((n) => pode(n.acesso)).map((n) => {
           const ativo = n.grupo === "config" ? CONFIG.some((c) => c.href === here) : n.href === here;
           return `<a href="${n.href}" ${ativo ? 'aria-current="page"' : ""}>${n.label}</a>`;
         }).join("")}
       </nav>
       <div class="header-user">
-        <span class="header-user__email">${esc(user.email)}</span>
+        <button type="button" class="header-user__email link-conta" id="conta" title="Mudar a minha password">${esc(perfil.nome || user.email)}</button>
+        <span class="badge ${perfil.admin ? "" : "badge--green"}">${perfil.admin ? "Admin" : "Gestão"}</span>
         <button class="btn btn--ghost btn--sm" id="logout">Sair</button>
       </div>
     </div>`;
@@ -96,6 +143,56 @@ function renderHeader(user) {
     await sb.auth.signOut();
     window.location.replace("index.html");
   });
+  header.querySelector("#conta").addEventListener("click", abrirConta);
+}
+
+/** Pequena janela para cada pessoa mudar a sua password. */
+function abrirConta() {
+  let d = document.getElementById("dlg-conta");
+  if (!d) {
+    d = document.createElement("dialog");
+    d.id = "dlg-conta";
+    d.className = "modal";
+    d.innerHTML = `
+      <form method="dialog" novalidate>
+        <div class="modal__head">
+          <h2>A minha conta</h2>
+          <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+        </div>
+        <div class="modal__body">
+          <p class="muted small" style="margin-top:0">${esc(perfil.email)}</p>
+          <div class="form-grid">
+            <div class="field">
+              <label for="pw1">Nova password</label>
+              <input class="input" id="pw1" type="password" autocomplete="new-password" minlength="8" />
+            </div>
+            <div class="field">
+              <label for="pw2">Repetir</label>
+              <input class="input" id="pw2" type="password" autocomplete="new-password" />
+            </div>
+          </div>
+          <p class="small muted">Mínimo 8 caracteres.</p>
+        </div>
+        <div class="modal__foot">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn">Guardar password</button>
+        </div>
+      </form>`;
+    document.body.appendChild(d);
+    wireModal(d);
+    d.querySelector("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const a = d.querySelector("#pw1").value, b = d.querySelector("#pw2").value;
+      if (a.length < 8) return toast("A password tem de ter pelo menos 8 caracteres.", true);
+      if (a !== b) return toast("As passwords não coincidem.", true);
+      const { error } = await sb.auth.updateUser({ password: a });
+      if (failed(error, "Não foi possível mudar a password")) return;
+      d.close();
+      toast("Password alterada.");
+    });
+  }
+  d.querySelector("form").reset();
+  d.showModal();
 }
 
 // Utilitários --------------------------------------------------------------

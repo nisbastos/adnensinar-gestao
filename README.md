@@ -20,6 +20,7 @@ Acesso só com login.
 | `mensalidades.html`, `js/mensalidades.js` | Mensalidades por mês (gerar, marcar pagas) |
 | `precos.html` | Tabela de preços (planos) |
 | `registo.html` | Registo de alterações (quem mudou o quê) |
+| `utilizadores.html` | Contas e perfis de acesso |
 | `backup.html`, `js/backup-folhas.js` | Descarregar todos os dados em Excel |
 | `backup/` | Backup automático diário para a Google Drive (Apps Script) |
 | `horario.html`, `js/horario.js` | Horário semanal (aulas recorrentes) |
@@ -39,9 +40,10 @@ Acesso só com login.
 | `supabase/007_mensalidades_registo.sql` | Preços, planos, mensalidades e registo de alterações — correr 7.º |
 | `supabase/008_nome_comum.sql` | Nome comum do aluno — correr 8.º |
 | `supabase/009_mensalidade_por_aluno.sql` | Duodécimos, desconto e inscrição por aluno — correr 9.º |
+| `supabase/010_utilizadores_perfis.sql` | Contas e perfis (Admin / Gestão) com regras na base de dados — correr 10.º |
 
 ## Primeira configuração
 
-1. Supabase → SQL Editor → correr `supabase/schema.sql` depois `002_inscricao_salas.sql`, `003_tipo_salas.sql`, `004_disciplinas.sql`, `005_professores_disciplinas.sql` `006_reduzir_disciplinas.sql`, `007_mensalidades_registo.sql`, `008_nome_comum.sql` e `009_mensalidade_por_aluno.sql`.
+1. Supabase → SQL Editor → correr `supabase/schema.sql` depois `002_inscricao_salas.sql`, `003_tipo_salas.sql`, `004_disciplinas.sql`, `005_professores_disciplinas.sql` `006_reduzir_disciplinas.sql`, `007_mensalidades_registo.sql`, `008_nome_comum.sql`, `009_mensalidade_por_aluno.sql` e `010_utilizadores_perfis.sql`.
 2. GitHub → Settings → Pages → Source: *Deploy from a branch* → `main` / `(root)`.
 3. Abrir o endereço do Pages e entrar com o utilizador criado no Supabase.
