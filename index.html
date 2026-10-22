@@ -35,7 +35,7 @@
     import { sb } from "./js/app.js";
 
     const { data } = await sb.auth.getSession();
-    if (data.session) location.replace("horario.html");
+    if (data.session) location.replace("hoje.html");
 
     const form = document.getElementById("login-form");
     const err = document.getElementById("login-error");
@@ -58,7 +58,7 @@
         btn.textContent = "Entrar";
         return;
       }
-      location.replace("horario.html");
+      location.replace("hoje.html");
     });
   </script>
 </body>

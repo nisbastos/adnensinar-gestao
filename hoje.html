@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Hoje | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1 id="titulo">Hoje</h1>
+        <p class="muted" id="subtitulo" style="margin:4px 0 0"></p>
+      </div>
+    </div>
+
+    <div class="hoje">
+      <div class="hoje__main">
+        <section class="card painel">
+          <div class="painel__head">
+            <h2>Agora no centro</h2>
+            <span class="muted small" id="agora-hora"></span>
+          </div>
+          <div id="agora"></div>
+        </section>
+
+        <section class="card painel">
+          <div class="painel__head">
+            <h2>Aulas do dia</h2>
+            <div class="segmented segmented--sm" role="group" aria-label="Tipo">
+              <button type="button" data-tipo="" aria-pressed="true">Todas</button>
+              <button type="button" data-tipo="Apoio ao Estudo" aria-pressed="false">Apoio</button>
+              <button type="button" data-tipo="Explicação" aria-pressed="false">Explicação</button>
+            </div>
+          </div>
+          <div id="aulas"></div>
+        </section>
+      </div>
+
+      <aside class="hoje__side">
+        <section class="card painel">
+          <div class="painel__head"><h2>Atenção</h2></div>
+          <div id="alertas"></div>
+        </section>
+
+        <section class="card painel">
+          <div class="painel__head"><h2>Aniversários</h2></div>
+          <div id="aniversarios"></div>
+        </section>
+
+        <section class="card painel">
+          <div class="painel__head">
+            <h2>Mensalidades</h2>
+            <a class="small" href="mensalidades.html">Abrir</a>
+          </div>
+          <div id="mensalidades"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script type="module" src="js/hoje.js"></script>
+</body>
+</html>

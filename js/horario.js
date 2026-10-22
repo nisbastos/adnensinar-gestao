@@ -1,4 +1,4 @@
-import { sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, hhmm, toMin, DIAS, DIAS_CURTOS } from "./app.js";
+import { sincronizar, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, hhmm, toMin, DIAS, DIAS_CURTOS } from "./app.js";
 
 await requireAuth();
 
@@ -432,18 +432,13 @@ form.addEventListener("submit", async (e) => {
     if (id) {
       const { error } = await sb.from("horario").update(dados).eq("id", id);
       if (failed(error, "Não foi possível guardar")) return;
-      const { error: e2 } = await sb.from("horario_alunos").delete().eq("horario_id", id);
-      if (failed(e2, "Não foi possível atualizar os alunos")) return;
     } else {
       const { data, error } = await sb.from("horario").insert(dados).select("id").single();
       if (failed(error, "Não foi possível guardar")) return;
       id = data.id;
     }
-    if (selecionados.size) {
-      const linhas = [...selecionados].map((aluno_id) => ({ horario_id: id, aluno_id }));
-      const { error } = await sb.from("horario_alunos").insert(linhas);
-      if (failed(error, "A aula foi guardada, mas houve um erro com os alunos")) return;
-    }
+    const e2 = await sincronizar("horario_alunos", "horario_id", id, "aluno_id", [...selecionados]);
+    if (failed(e2, "A aula foi guardada, mas houve um erro com os alunos")) return;
     modal.close();
     toast(editId ? "Aula atualizada." : "Aula criada.");
     diaAtivo = dados.dia_semana;

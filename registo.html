@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Registo de alterações | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Registo de alterações</h1>
+      <div class="toolbar">
+        <select class="select" id="f-tabela" aria-label="Área">
+          <option value="">Todas as áreas</option>
+        </select>
+        <select class="select" id="f-quem" aria-label="Utilizador">
+          <option value="">Todas as pessoas</option>
+        </select>
+        <select class="select" id="f-op" aria-label="Ação">
+          <option value="">Todas as ações</option>
+          <option value="INSERT">Criou</option>
+          <option value="UPDATE">Alterou</option>
+          <option value="DELETE">Apagou</option>
+        </select>
+        <input class="input search" id="f-busca" type="search" placeholder="Pesquisar (ex.: nome do aluno)…" />
+      </div>
+    </div>
+
+    <div class="card table-wrap">
+      <table class="table table--compact registo">
+        <thead>
+          <tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Área</th><th>Registo</th><th>O que mudou</th></tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div class="empty" id="vazio" hidden>Sem alterações registadas.</div>
+    </div>
+    <div style="text-align:center; margin-top:16px">
+      <button class="btn btn--ghost" id="mais" hidden>Carregar mais</button>
+    </div>
+    <p class="small muted">As passwords institucionais nunca são guardadas no registo — aparece apenas que foram alteradas.</p>
+  </main>
+
+  <script type="module">
+    import { sb, requireAuth, esc, failed, norm, DIAS, euro, nomeMes } from "./js/app.js";
+
+    await requireAuth();
+    const $ = (id) => document.getElementById(id);
+
+    const TABELAS = {
+      alunos: "Alunos", professores: "Professores", salas: "Salas", disciplinas: "Disciplinas",
+      horario: "Horário", horario_alunos: "Horário · alunos", aluno_disciplinas: "Alunos · disciplinas",
+      professor_disciplinas: "Professores · disciplinas", mensalidades: "Mensalidades",
+      aluno_planos: "Planos de mensalidade", precos: "Preços", definicoes: "Regras das mensalidades",
+    };
+    const ACAO = { INSERT: ["Criou", "badge--green"], UPDATE: ["Alterou", "badge--yellow"], DELETE: ["Apagou", "badge--pink"] };
+
+    const CAMPOS = {
+      nome: "Nome", ano_escolar: "Ano", ano_turma: "Ano e turma", escola: "Escola", servico: "Serviço",
+      encarregado_nome: "Encarregado", encarregado_telefone: "Telemóvel EE", encarregado_email: "Email EE",
+      encarregado_parentesco: "Parentesco", encarregado_profissao: "Profissão EE",
+      telemovel_aluno: "Telemóvel aluno", email_institucional: "Email institucional", password_institucional: "Password institucional",
+      autoriza_saida: "Pode sair", autoriza_imagem: "Autoriza imagem", autoriza_credenciais: "Autoriza credenciais",
+      aceita_regulamento: "Aceita regulamento", saude: "Saúde", dificuldades: "Dificuldades", notas: "Notas",
+      ativo: "Ativo", data_nascimento: "Data de nascimento", data_inscricao: "Data de inscrição",
+      data_desistencia: "Data de desistência", nif: "NIF", morada: "Morada", codigo_postal: "Código postal",
+      localidade: "Localidade", como_conheceu: "Como conheceu",
+      dia_semana: "Dia", hora_inicio: "Início", hora_fim: "Fim", professor_id: "Professor", sala_id: "Sala",
+      disciplina_id: "Disciplina", aluno_id: "Aluno", categoria: "Categoria", tipo: "Tipo", ordem: "Ordem",
+      cor: "Cor", email: "Email", telefone: "Telefone",
+      mensalidade: "Mensalidade", duodecimo: "Duodécimo", inscricao: "Inscrição", total: "Total", estado: "Estado",
+      valor_pago: "Valor pago", pago_em: "Pago em", metodo: "Método", mes: "Mês",
+      valor: "Valor", desconto_pct: "Desconto %", descricao: "Descrição", nivel: "Nível", preco_id: "Preço",
+    };
+    const OCULTOS = new Set(["id", "created_at", "updated_at", "total"]);
+    const DINHEIRO = new Set(["mensalidade", "duodecimo", "inscricao", "valor_pago", "valor"]);
+
+    let nomes = {}; // id → nome (alunos, professores, salas, disciplinas)
+    let linhas = [];
+    let pagina = 0;
+    const POR_PAGINA = 100;
+
+    async function carregarNomes() {
+      const rs = await Promise.all(["alunos", "professores", "salas", "disciplinas"].map((t) => sb.from(t).select("id, nome")));
+      nomes = {};
+      for (const r of rs) for (const x of r.data ?? []) nomes[x.id] = x.nome;
+    }
+
+    async function carregar(reset = true) {
+      if (reset) { pagina = 0; linhas = []; }
+      let q = sb.from("registo_alteracoes").select("*").order("quando", { ascending: false })
+        .range(pagina * POR_PAGINA, pagina * POR_PAGINA + POR_PAGINA - 1);
+      if ($("f-tabela").value) q = q.eq("tabela", $("f-tabela").value);
+      if ($("f-quem").value) q = q.eq("utilizador", $("f-quem").value);
+      if ($("f-op").value) q = q.eq("operacao", $("f-op").value);
+      const { data, error } = await q;
+      if (failed(error, "Erro a carregar o registo")) return;
+      linhas = linhas.concat(data);
+      $("mais").hidden = data.length < POR_PAGINA;
+      atualizarPessoas();
+      render();
+    }
+
+    function atualizarPessoas() {
+      const atual = $("f-quem").value;
+      const pessoas = [...new Set(linhas.map((l) => l.utilizador).filter(Boolean))].sort();
+      if (atual && !pessoas.includes(atual)) pessoas.push(atual);
+      $("f-quem").innerHTML = `<option value="">Todas as pessoas</option>` + pessoas.map((p) => `<option ${p === atual ? "selected" : ""}>${esc(p)}</option>`).join("");
+    }
+
+    // ---------- Descrições legíveis ----------
+
+    const nomeDe = (id, jsonNome) => nomes[id] ?? jsonNome ?? "(apagado)";
+
+    function valorLegivel(campo, v) {
+      if (v === null || v === undefined || v === "") return "—";
+      if (typeof v === "boolean") return v ? "Sim" : "Não";
+      if (["professor_id", "sala_id", "disciplina_id", "aluno_id", "preco_id"].includes(campo)) return nomes[v] ?? "(apagado)";
+      if (campo === "dia_semana") return DIAS[v] ?? v;
+      if (["hora_inicio", "hora_fim"].includes(campo)) return String(v).slice(0, 5);
+      if (campo === "mes") return nomeMes(v);
+      if (DINHEIRO.has(campo)) return euro(v);
+      if (/^\d{4}-\d{2}-\d{2}/.test(String(v))) return String(v).slice(0, 10).split("-").reverse().join("/");
+      const s = String(v);
+      return s.length > 60 ? s.slice(0, 57) + "…" : s;
+    }
+
+    function descricao(l) {
+      const r = l.depois ?? l.antes ?? {};
+      switch (l.tabela) {
+        case "horario": {
+          const d = nomes[r.disciplina_id] ?? r.categoria ?? "Aula";
+          return `${d} · ${DIAS[r.dia_semana] ?? ""} ${String(r.hora_inicio ?? "").slice(0, 5)}`;
+        }
+        case "horario_alunos": return `${nomeDe(r.aluno_id)} na aula (${l.operacao === "DELETE" ? "removido" : "adicionado"})`;
+        case "aluno_disciplinas": return `${nomeDe(r.aluno_id)} · ${nomeDe(r.disciplina_id)}`;
+        case "professor_disciplinas": return `${nomeDe(r.professor_id)} · ${nomeDe(r.disciplina_id)}`;
+        case "mensalidades": return `${nomeDe(r.aluno_id)} · ${r.mes ? nomeMes(r.mes) : ""}`;
+        case "aluno_planos": return `${nomeDe(r.aluno_id)} · ${[r.servico, r.descricao].filter(Boolean).join(" ") || "valor manual"}`;
+        case "precos": return `${r.nivel} · ${r.servico} · ${r.descricao}`;
+        case "definicoes": return CAMPOS[r.chave] ?? r.descricao ?? r.chave;
+        default: return r.nome ?? l.registo_id ?? "—";
+      }
+    }
+
+    function mudancas(l) {
+      if (l.operacao === "DELETE") return "";
+      if (l.operacao === "INSERT") {
+        const r = l.depois ?? {};
+        const chaves = Object.keys(r).filter((k) => !OCULTOS.has(k) && r[k] !== null && r[k] !== "" && r[k] !== false && CAMPOS[k] && k !== "nome");
+        return chaves.slice(0, 4).map((k) => `<span class="muted">${CAMPOS[k]}:</span> ${esc(valorLegivel(k, r[k]))}`).join("<br>")
+          + (chaves.length > 4 ? `<br><span class="muted">+${chaves.length - 4} campos</span>` : "");
+      }
+      const a = l.antes ?? {}, d = l.depois ?? {};
+      const chaves = Object.keys(d).filter((k) => !OCULTOS.has(k) && JSON.stringify(a[k]) !== JSON.stringify(d[k]));
+      return chaves.map((k) =>
+        `<span class="muted">${CAMPOS[k] ?? k}:</span> ${esc(valorLegivel(k, a[k]))} <span class="muted">→</span> <strong>${esc(valorLegivel(k, d[k]))}</strong>`
+      ).join("<br>");
+    }
+
+    function render() {
+      const q = norm($("f-busca").value);
+      const lista = linhas.filter((l) => !q || norm(descricao(l) + " " + (l.utilizador ?? "")).includes(q));
+      $("vazio").hidden = lista.length > 0;
+      $("lista").innerHTML = lista.map((l) => {
+        const d = new Date(l.quando);
+        const [txt, cls] = ACAO[l.operacao];
+        return `
+          <tr>
+            <td class="small nowrap">${d.toLocaleDateString("pt-PT")}<br><span class="muted">${d.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}</span></td>
+            <td class="small">${esc(l.utilizador ?? "—")}</td>
+            <td><span class="badge ${cls}">${txt}</span></td>
+            <td class="small">${esc(TABELAS[l.tabela] ?? l.tabela)}</td>
+            <td><strong>${esc(descricao(l))}</strong></td>
+            <td class="small">${mudancas(l)}</td>
+          </tr>`;
+      }).join("");
+    }
+
+    $("f-tabela").innerHTML += Object.entries(TABELAS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+    ["f-tabela", "f-quem", "f-op"].forEach((id) => $(id).addEventListener("change", () => carregar()));
+    $("f-busca").addEventListener("input", render);
+    $("mais").addEventListener("click", () => { pagina++; carregar(false); });
+
+    await carregarNomes();
+    carregar();
+  </script>
+</body>
+</html>

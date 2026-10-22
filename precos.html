@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Preços | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Preços</h1>
+    </div>
+
+    <section class="card" style="padding:20px 22px; margin-bottom:22px">
+      <h2 style="font-size:20px; margin-bottom:12px">Regras das mensalidades</h2>
+      <form id="form-def" class="def-grid" novalidate>
+        <div class="field">
+          <label for="d-insc">Inscrição (€)</label>
+          <input class="input" id="d-insc" name="valor_inscricao" type="number" min="0" step="0.01" />
+        </div>
+        <div class="field">
+          <label for="d-seg">Seguro (€)</label>
+          <input class="input" id="d-seg" name="valor_seguro" type="number" min="0" step="0.01" />
+        </div>
+        <div class="field">
+          <label for="d-meses" title="O valor de junho é dividido por este número de mensalidades">Meses do duodécimo</label>
+          <input class="input" id="d-meses" name="meses_duodecimo" type="number" min="1" max="12" step="1" />
+        </div>
+        <div class="field">
+          <label for="d-irmao">Desconto irmão (%)</label>
+          <input class="input" id="d-irmao" name="desconto_irmao" type="number" min="0" max="100" step="1" />
+        </div>
+        <button class="btn" type="submit" id="guardar-def">Guardar</button>
+      </form>
+      <p class="small muted" style="margin-bottom:0">
+        Duodécimo = mensalidade ÷ meses do duodécimo (o valor de junho repartido pelas mensalidades do ano).
+        A inscrição + seguro entra uma vez por ano letivo, na mensalidade do mês em que o aluno se inscreveu (ou em setembro, se se inscreveu antes).
+      </p>
+    </section>
+
+    <div class="page-head">
+      <h2 style="font-size:24px">Tabela de preços</h2>
+      <div class="toolbar">
+        <select class="select" id="filter-nivel" aria-label="Nível">
+          <option value="">Todos os níveis</option>
+          <option>1.º ciclo</option>
+          <option>2.º ciclo</option>
+          <option>3.º ciclo</option>
+          <option>Secundário</option>
+        </select>
+        <button class="btn" id="novo">+ Novo preço</button>
+      </div>
+    </div>
+
+    <div class="card table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th data-sort="nivel">Nível</th>
+            <th data-sort="servico">Serviço</th>
+            <th data-sort="descricao">Descrição</th>
+            <th data-sort="valor" data-dir="desc" class="num">Valor</th>
+            <th data-sort="alunos" data-dir="desc">Alunos</th>
+            <th data-sort="estado" data-dir="desc">Estado</th>
+          </tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div class="empty" id="vazio" hidden>Sem preços. Corre a migração 007 no Supabase.</div>
+    </div>
+  </main>
+
+  <dialog class="modal" id="modal">
+    <form id="form" method="dialog" novalidate>
+      <div class="modal__head">
+        <h2 id="modal-title">Novo preço</h2>
+        <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-grid">
+          <div class="field">
+            <label for="f-nivel">Nível *</label>
+            <select class="select" id="f-nivel" name="nivel">
+              <option>1.º ciclo</option>
+              <option>2.º ciclo</option>
+              <option>3.º ciclo</option>
+              <option>Secundário</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-serv">Serviço *</label>
+            <select class="select" id="f-serv" name="servico">
+              <option>Apoio ao Estudo</option>
+              <option>Explicação</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-desc">Descrição *</label>
+            <input class="input" id="f-desc" name="descricao" placeholder="ex.: 2 sessões/semana" />
+          </div>
+          <div class="field">
+            <label for="f-valor">Valor (€) *</label>
+            <input class="input" id="f-valor" name="valor" type="number" min="0" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="f-ordem">Ordem</label>
+            <input class="input" id="f-ordem" name="ordem" type="number" step="1" />
+          </div>
+          <label class="check"><input type="checkbox" name="ativo" checked /> Preço em uso</label>
+        </div>
+        <p class="small muted">Mudar um preço não altera as mensalidades já geradas nem o valor guardado nos planos dos alunos.</p>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--danger" id="apagar" hidden>Apagar</button>
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn" id="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal, ordenar, ligarOrdenacao, euro, cent } from "./js/app.js";
+
+    await requireAuth();
+
+    const $ = (id) => document.getElementById(id);
+    const modal = $("modal");
+    const form = $("form");
+    wireModal(modal);
+
+    const NIVEIS = ["1.º ciclo", "2.º ciclo", "3.º ciclo", "Secundário"];
+    let precos = [];
+    let nAlunos = new Map();
+    let defs = [];
+    let editId = null;
+
+    async function carregar() {
+      const [r1, r2, r3] = await Promise.all([
+        sb.from("precos").select("*"),
+        sb.from("aluno_planos").select("preco_id"),
+        sb.from("definicoes").select("*"),
+      ]);
+      if (failed(r1.error, "Erro a carregar preços") || failed(r2.error, "Erro a carregar planos") || failed(r3.error, "Erro a carregar definições")) return;
+      precos = r1.data;
+      nAlunos = new Map();
+      for (const r of r2.data) nAlunos.set(r.preco_id, (nAlunos.get(r.preco_id) ?? 0) + 1);
+      defs = r3.data;
+      for (const d of defs) {
+        const el = $("form-def").elements[d.chave];
+        if (el) el.value = Number(d.valor);
+      }
+      render();
+    }
+
+    const estadoOrdem = { chave: "nivel", dir: "asc" };
+    const CHAVES = {
+      nivel: (p) => NIVEIS.indexOf(p.nivel) * 1000 + (p.servico === "Explicação" ? 500 : 0) + p.ordem,
+      servico: (p) => p.servico, descricao: (p) => p.descricao, valor: (p) => Number(p.valor),
+      alunos: (p) => nAlunos.get(p.id) ?? 0, estado: (p) => p.ativo,
+    };
+
+    function render() {
+      const f = $("filter-nivel").value;
+      const lista = ordenar(precos.filter((p) => !f || p.nivel === f), estadoOrdem, CHAVES);
+      $("vazio").hidden = lista.length > 0;
+      $("lista").innerHTML = lista.map((p) => `
+        <tr data-id="${p.id}">
+          <td>${esc(p.nivel)}</td>
+          <td><span class="badge ${p.servico === "Explicação" ? "badge--yellow" : "badge--green"}">${esc(p.servico)}</span></td>
+          <td>${esc(p.descricao)}</td>
+          <td class="num"><strong>${euro(p.valor)}</strong></td>
+          <td>${nAlunos.get(p.id) ?? 0}</td>
+          <td>${p.ativo ? '<span class="badge badge--green">Em uso</span>' : '<span class="badge badge--off">Fora de uso</span>'}</td>
+        </tr>`).join("");
+    }
+
+    $("filter-nivel").addEventListener("change", render);
+    ligarOrdenacao(document.querySelector("table.table"), null, estadoOrdem, render);
+
+    $("form-def").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const linhas = [...$("form-def").elements]
+        .filter((el) => el.name)
+        .map((el) => ({ chave: el.name, valor: cent(el.value || 0), descricao: defs.find((d) => d.chave === el.name)?.descricao ?? null }));
+      if (linhas.find((l) => l.chave === "meses_duodecimo").valor < 1) return toast("Os meses do duodécimo têm de ser pelo menos 1.", true);
+      $("guardar-def").disabled = true;
+      const { error } = await sb.from("definicoes").upsert(linhas);
+      $("guardar-def").disabled = false;
+      if (failed(error, "Não foi possível guardar")) return;
+      toast("Regras guardadas.");
+      carregar();
+    });
+
+    function abrir(p = null) {
+      editId = p?.id ?? null;
+      form.reset();
+      fillForm(form, p ?? { ativo: true, nivel: $("filter-nivel").value || "1.º ciclo", servico: "Apoio ao Estudo", ordem: 0 });
+      $("modal-title").textContent = p ? "Editar preço" : "Novo preço";
+      $("apagar").hidden = !p;
+      modal.showModal();
+    }
+
+    $("lista").addEventListener("click", (e) => {
+      const tr = e.target.closest("tr[data-id]");
+      if (tr) abrir(precos.find((p) => p.id === tr.dataset.id));
+    });
+    $("novo").addEventListener("click", () => abrir());
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const d = formData(form);
+      if (!d.descricao || d.valor == null) return toast("Preenche a descrição e o valor.", true);
+      d.valor = cent(d.valor);
+      d.ordem = Number(d.ordem ?? 0);
+      $("guardar").disabled = true;
+      const { error } = editId
+        ? await sb.from("precos").update(d).eq("id", editId)
+        : await sb.from("precos").insert(d);
+      $("guardar").disabled = false;
+      if (failed(error, "Não foi possível guardar")) return;
+      modal.close();
+      toast("Guardado.");
+      carregar();
+    });
+
+    $("apagar").addEventListener("click", async () => {
+      const p = precos.find((x) => x.id === editId);
+      if (!confirm(`Apagar "${p.nivel} · ${p.descricao}"?\n\nOs planos dos alunos mantêm o valor, mas deixam de estar ligados a este preço. Se já não se aplica, é preferível desmarcar "Preço em uso".`)) return;
+      const { error } = await sb.from("precos").delete().eq("id", editId);
+      if (failed(error, "Não foi possível apagar")) return;
+      modal.close();
+      toast("Preço apagado.");
+      carregar();
+    });
+
+    carregar();
+  </script>
+</body>
+</html>

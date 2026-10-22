@@ -16,6 +16,10 @@ Acesso só com login.
 | Ficheiro | O quê |
 |---|---|
 | `index.html` | Login |
+| `hoje.html`, `js/hoje.js` | Página inicial: aulas do dia, quem está no centro, alertas, aniversários, mensalidades |
+| `mensalidades.html`, `js/mensalidades.js` | Mensalidades por mês (gerar, marcar pagas) |
+| `precos.html` | Tabela de preços e regras (inscrição, seguro, duodécimos) |
+| `registo.html` | Registo de alterações (quem mudou o quê) |
 | `horario.html`, `js/horario.js` | Horário semanal (aulas recorrentes) |
 | `alunos.html`, `js/alunos.js` | Lista e ficha de alunos |
 | `professores.html` | Professores e cor de cada um no horário |
@@ -30,9 +34,10 @@ Acesso só com login.
 | `supabase/004_disciplinas.sql` | Disciplinas como lista de escolha — correr 4.º |
 | `supabase/005_professores_disciplinas.sql` | Disciplinas por professor — correr 5.º |
 | `supabase/006_reduzir_disciplinas.sql` | Lista final de disciplinas (essenciais) — correr 6.º |
+| `supabase/007_mensalidades_registo.sql` | Preços, planos, mensalidades e registo de alterações — correr 7.º |
 
 ## Primeira configuração
 
-1. Supabase → SQL Editor → correr `supabase/schema.sql` depois `002_inscricao_salas.sql`, `003_tipo_salas.sql`, `004_disciplinas.sql`, `005_professores_disciplinas.sql` e `006_reduzir_disciplinas.sql`.
+1. Supabase → SQL Editor → correr `supabase/schema.sql` depois `002_inscricao_salas.sql`, `003_tipo_salas.sql`, `004_disciplinas.sql`, `005_professores_disciplinas.sql` `006_reduzir_disciplinas.sql` e `007_mensalidades_registo.sql`.
 2. GitHub → Settings → Pages → Source: *Deploy from a branch* → `main` / `(root)`.
 3. Abrir o endereço do Pages e entrar com o utilizador criado no Supabase.

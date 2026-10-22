@@ -28,8 +28,10 @@ export const CORES = ["#c1dbdc", "#cee3d1", "#ffe7a9", "#fbd1c1", "#d9d2ec", "#f
 // Header / navegação ------------------------------------------------
 
 const NAV = [
+  { href: "hoje.html", label: "Hoje" },
   { href: "horario.html", label: "Horário" },
   { href: "alunos.html", label: "Alunos" },
+  { href: "mensalidades.html", label: "Mensalidades" },
   { href: "professores.html", label: "Configuração", grupo: "config" },
 ];
 
@@ -38,6 +40,8 @@ const CONFIG = [
   { href: "professores.html", label: "Professores" },
   { href: "salas.html", label: "Salas" },
   { href: "disciplinas.html", label: "Disciplinas" },
+  { href: "precos.html", label: "Preços" },
+  { href: "registo.html", label: "Registo de alterações" },
 ];
 
 /** Garante sessão iniciada; se não houver, volta ao login. Devolve o utilizador. */
@@ -55,12 +59,12 @@ export async function requireAuth() {
 }
 
 function renderHeader(user) {
-  const here = location.pathname.split("/").pop() || "horario.html";
+  const here = location.pathname.split("/").pop() || "hoje.html";
   const header = document.createElement("header");
   header.className = "app-header";
   header.innerHTML = `
     <div class="app-header__inner">
-      <a class="brand" href="horario.html">
+      <a class="brand" href="hoje.html">
         <img src="assets/badge.png" alt="" />
         <span class="brand__text">
           <span class="brand__title">ADN Ensinar</span>
@@ -222,4 +226,70 @@ export function ligarOrdenacao(tabela, select, estado, aoMudar) {
     aoMudar();
   });
   marcar();
+}
+
+
+// Dinheiro, datas e níveis -----------------------------------------------------
+
+const fmtEuro = new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" });
+/** 12.5 → "12,50 €" */
+export const euro = (v) => fmtEuro.format(Number(v ?? 0));
+
+/** Arredonda a cêntimos. */
+export const cent = (v) => Math.round(Number(v ?? 0) * 100) / 100;
+
+export const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+/** Date → "2026-10-01" (1.º dia do mês, sem fuso horário). */
+export const inicioMes = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+
+/** Date → "2026-10-22" (data local). */
+export const isoLocal = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** "2026-10-01" → "outubro de 2026" */
+export const nomeMes = (iso) => {
+  const [a, m] = String(iso).split("-").map(Number);
+  return `${MESES[m - 1]} de ${a}`;
+};
+
+/** Ano letivo (setembro a agosto) a que pertence um mês "AAAA-MM-01" → "2026/2027". */
+export const anoLetivo = (iso) => {
+  const [a, m] = String(iso).split("-").map(Number);
+  return m >= 9 ? `${a}/${a + 1}` : `${a - 1}/${a}`;
+};
+
+/** "7.º ano" → "3.º ciclo" (para escolher o preço certo). */
+export function nivelDoAno(ano) {
+  const n = Number(String(ano ?? "").match(/\d+/)?.[0]);
+  if (!n) return null;
+  if (n <= 4) return "1.º ciclo";
+  if (n <= 6) return "2.º ciclo";
+  if (n <= 9) return "3.º ciclo";
+  if (n <= 12) return "Secundário";
+  return null;
+}
+
+// Ligações muitos-para-muitos -------------------------------------------------
+
+/**
+ * Acerta as ligações de um registo (ex.: disciplinas de um aluno) apagando só as que
+ * saíram e inserindo só as novas — assim o registo de alterações mostra o que mudou.
+ */
+export async function sincronizar(tabela, campoDono, idDono, campoOutro, novosIds) {
+  const { data, error } = await sb.from(tabela).select(campoOutro).eq(campoDono, idDono);
+  if (error) return error;
+  const atuais = new Set(data.map((r) => r[campoOutro]));
+  const novos = new Set(novosIds);
+  const sair = [...atuais].filter((x) => !novos.has(x));
+  const entrar = [...novos].filter((x) => !atuais.has(x));
+  if (sair.length) {
+    const { error: e } = await sb.from(tabela).delete().eq(campoDono, idDono).in(campoOutro, sair);
+    if (e) return e;
+  }
+  if (entrar.length) {
+    const { error: e } = await sb.from(tabela).insert(entrar.map((x) => ({ [campoDono]: idDono, [campoOutro]: x })));
+    if (e) return e;
+  }
+  return null;
 }

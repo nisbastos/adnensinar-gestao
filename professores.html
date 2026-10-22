@@ -80,7 +80,7 @@
   </dialog>
 
   <script type="module">
-    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal, CORES, ordenar, ligarOrdenacao } from "./js/app.js";
+    import { sb, requireAuth, esc, toast, failed, formData, fillForm, wireModal, CORES, ordenar, ligarOrdenacao, sincronizar } from "./js/app.js";
 
     await requireAuth();
 
@@ -174,17 +174,13 @@
         if (id) {
           const { error } = await sb.from("professores").update(dados).eq("id", id);
           if (failed(error, "Não foi possível guardar")) return;
-          const { error: e2 } = await sb.from("professor_disciplinas").delete().eq("professor_id", id);
-          if (failed(e2, "Não foi possível atualizar as disciplinas")) return;
         } else {
           const { data, error } = await sb.from("professores").insert(dados).select("id").single();
           if (failed(error, "Não foi possível guardar")) return;
           id = data.id;
         }
-        if (discIds.length) {
-          const { error } = await sb.from("professor_disciplinas").insert(discIds.map((disciplina_id) => ({ professor_id: id, disciplina_id })));
-          if (failed(error, "O professor foi guardado, mas houve um erro nas disciplinas")) return;
-        }
+        const e3 = await sincronizar("professor_disciplinas", "professor_id", id, "disciplina_id", discIds);
+        if (failed(e3, "O professor foi guardado, mas houve um erro nas disciplinas")) return;
         modal.close();
         toast("Guardado.");
         carregar();
