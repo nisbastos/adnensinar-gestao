@@ -306,7 +306,8 @@ $("filter-estado").addEventListener("change", render);
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const dados = formData(form);
+  // Uniformiza (maiúsculas, telefones, código postal, turma…) antes de guardar.
+  const dados = globalThis.ADN_INSCRICAO ? ADN_INSCRICAO.uniformizar(formData(form)) : formData(form);
   if (!dados.nome) return toast("O nome é obrigatório.", true);
 
   const discIds = [...$("f-disc").querySelectorAll("input:checked")].map((i) => i.value);

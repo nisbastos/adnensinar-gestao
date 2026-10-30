@@ -1,7 +1,7 @@
 /* ==========================================================================
    ADN Ensinar — Gestão · Backup automático para a Google Drive
    Cria todos os dias um Excel com todos os dados e guarda os últimos 30.
-   Instruções: backup/README.md
+   Instruções: apps-script/README.md
    ========================================================================== */
 
 const PASTA_NOME = 'ADN Gestão — Backups';

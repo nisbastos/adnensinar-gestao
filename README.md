@@ -23,7 +23,8 @@ Acesso só com login.
 | `registo.html` | Registo de alterações (quem mudou o quê) |
 | `utilizadores.html` | Contas e perfis de acesso |
 | `backup.html`, `js/backup-folhas.js` | Descarregar todos os dados em Excel |
-| `backup/` | Backup automático diário para a Google Drive (Apps Script) |
+| `apps-script/` | Google Apps Script: inscrições automáticas do formulário + backup diário na Drive |
+| `js/inscricao.js` | Conversão e uniformização das respostas do formulário (partilhado com o Apps Script) |
 | `horario.html`, `js/horario.js` | Horário semanal (aulas recorrentes) |
 | `alunos.html`, `js/alunos.js` | Lista e ficha de alunos |
 | `professores.html` | Professores e cor de cada um no horário |

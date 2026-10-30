@@ -4,67 +4,9 @@ await requireAuth();
 
 const $ = (id) => document.getElementById(id);
 
-// Cabeçalho do formulário (início do texto, sem acentos/maiúsculas) → coluna na base de dados.
-const MAPA = [
-  ["carimbo de data", "data_inscricao", dataHora],
-  ["nome completo do aluno", "nome"],
-  ["nif", "nif", soDigitos],
-  ["data de nascimento", "data_nascimento", data],
-  ["morada", "morada"],
-  ["codigo postal", "codigo_postal"],
-  ["localidade", "localidade"],
-  ["telemovel do aluno", "telemovel_aluno"],
-  ["escola", "escola"],
-  ["ano de escolaridade", "ano_turma"],
-  ["em que disciplinas", "dificuldades"],
-  ["o seu educando tem alguma condicao", "saude"],
-  ["como conheceu", "como_conheceu"],
-  ["nome completo do encarregado", "encarregado_nome"],
-  ["email institucional", "email_institucional"],
-  ["password institucional", "password_institucional"],
-  ["email", "encarregado_email"],
-  ["telemovel", "encarregado_telefone"],
-  ["grau de parentesco", "encarregado_parentesco"],
-  ["profissao", "encarregado_profissao"],
-  ["autorizo a partilha das credenciais", "autoriza_credenciais", simNao],
-  ["autorizo a captacao", "autoriza_imagem", simNao],
-  ["autorizo a saida", "autoriza_saida", simNao],
-  ["declaro que li", "aceita_regulamento", simNao],
-];
-
-// ---------- Conversores ----------
-
-function data(v) {
-  const m = String(v).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-  return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null;
-}
-
-function dataHora(v) {
-  const d = data(v);
-  if (!d) return null;
-  const t = String(v).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  return t ? `${d}T${t[1].padStart(2, "0")}:${t[2]}:${t[3] ?? "00"}` : d;
-}
-
-function simNao(v) {
-  const n = norm(v).trim();
-  if (!n) return null;
-  return !n.startsWith("nao");
-}
-
-function soDigitos(v) {
-  const d = String(v).replace(/\D/g, "");
-  return d || null;
-}
-
-/** "7.º B", "7B", "7º ano turma B" → "7.º ano" */
-function anoEscolar(t) {
-  const m = String(t ?? "").match(/\d{1,2}/);
-  if (!m) return null;
-  const ano = `${Number(m[0])}.º ano`;
-  return ANOS.includes(ano) ? ano : null;
-}
+// A conversão e a uniformização das respostas do formulário estão em js/inscricao.js
+// (o mesmo código usado pelo Google Apps Script que cria os alunos automaticamente).
+const INSC = globalThis.ADN_INSCRICAO;
 
 // ---------- CSV ----------
 
@@ -98,8 +40,7 @@ $("ficheiro").addEventListener("change", async (e) => {
   const linhas = parseCSV((await f.text()).replace(/^﻿/, ""));
   if (linhas.length < 2) return toast("O ficheiro não tem linhas de dados.", true);
 
-  const cab = linhas[0].map((h) => norm(h).trim());
-  const colunas = cab.map((h) => MAPA.find(([inicio]) => h.startsWith(inicio)) ?? null);
+  const colunas = INSC.mapearCabecalhos(linhas[0]);
   if (!colunas.some((c) => c?.[1] === "nome")) {
     return toast('Não encontrei a coluna "Nome Completo do Aluno". É o CSV do formulário?', true);
   }
@@ -112,15 +53,8 @@ $("ficheiro").addEventListener("change", async (e) => {
   const desist = $("tipo").value === "desistencias";
   plano = [];
   for (const l of linhas.slice(1)) {
-    const dados = {};
-    colunas.forEach((c, i) => {
-      if (!c) return;
-      const [, campo, conv] = c;
-      const bruto = (l[i] ?? "").trim();
-      dados[campo] = bruto === "" ? null : conv ? conv(bruto) : bruto;
-    });
-    if (!dados.nome) continue;
-    dados.ano_escolar = anoEscolar(dados.ano_turma);
+    const dados = INSC.linhaParaAluno(linhas[0], l);
+    if (!dados) continue;
     dados.ativo = !desist;
 
     const id = (dados.nif && porNif.get(dados.nif)) || porNome.get(norm(dados.nome).trim());
@@ -434,5 +368,70 @@ $("confirmar-planos").addEventListener("click", async () => {
   } finally {
     btn.disabled = false;
     btn.textContent = "Importar planos";
+  }
+});
+
+
+// ==========================================================================
+// Uniformizar fichas existentes
+// ==========================================================================
+
+const ROTULOS = {
+  nome: "Nome", nome_comum: "Nome comum", nif: "NIF", data_nascimento: "Data de nascimento", morada: "Morada",
+  codigo_postal: "Código postal", localidade: "Localidade", telemovel_aluno: "Telemóvel aluno", escola: "Escola",
+  ano_turma: "Ano e turma", ano_escolar: "Ano", dificuldades: "Dificuldades", saude: "Saúde", como_conheceu: "Como conheceu",
+  encarregado_nome: "Encarregado", encarregado_email: "Email EE", encarregado_telefone: "Telemóvel EE",
+  encarregado_parentesco: "Parentesco", encarregado_profissao: "Profissão EE", email_institucional: "Email institucional",
+  password_institucional: "Password institucional",
+};
+let planoUnif = [];
+
+$("analisar-unif").addEventListener("click", async () => {
+  const { data, error } = await sb.from("alunos").select("*");
+  if (failed(error, "Erro a ler alunos")) return;
+  planoUnif = data
+    .map((a) => {
+      const base = {};
+      for (const k of Object.keys(ROTULOS)) if (k in a) base[k] = a[k];
+      return { aluno: a, dif: INSC.diferencas(base) };
+    })
+    .filter((x) => Object.keys(x.dif).length);
+
+  const nCampos = planoUnif.reduce((t, x) => t + Object.keys(x.dif).length, 0);
+  $("resumo-unif").innerHTML = planoUnif.length
+    ? `<strong>${nCampos}</strong> campos a corrigir em <strong>${planoUnif.length}</strong> de ${data.length} alunos.`
+    : "Está tudo uniformizado. Nada a corrigir.";
+  $("linhas-unif").innerHTML = planoUnif.flatMap(({ aluno, dif }) =>
+    Object.entries(dif).map(([k, [antes, depois]], i) => `
+      <tr>
+        <td>${i === 0 ? `<strong>${esc(aluno.nome)}</strong>` : ""}</td>
+        <td class="small">${esc(ROTULOS[k] ?? k)}</td>
+        <td class="small muted">${k === "password_institucional" ? "••••" : esc(antes ?? "—")}</td>
+        <td class="small"><strong>${k === "password_institucional" ? "•••• (espaços retirados)" : esc(depois ?? "—")}</strong></td>
+      </tr>`)
+  ).join("");
+  $("aplicar-unif").hidden = !planoUnif.length;
+  $("preview-unif").hidden = false;
+});
+
+$("cancelar-unif").addEventListener("click", () => { planoUnif = []; $("preview-unif").hidden = true; });
+
+$("aplicar-unif").addEventListener("click", async () => {
+  const btn = $("aplicar-unif");
+  btn.disabled = true;
+  btn.textContent = "A aplicar…";
+  let ok = 0;
+  try {
+    for (const { aluno, dif } of planoUnif) {
+      const alteracoes = Object.fromEntries(Object.entries(dif).map(([k, [, depois]]) => [k, depois]));
+      const { error } = await sb.from("alunos").update(alteracoes).eq("id", aluno.id);
+      if (failed(error, `Erro ao atualizar ${aluno.nome}`)) return;
+      ok++;
+    }
+    toast(`${ok} fichas uniformizadas.`);
+    $("preview-unif").hidden = true;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Aplicar alterações";
   }
 });

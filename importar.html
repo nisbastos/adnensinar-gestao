@@ -17,6 +17,29 @@
       <h1>Importar</h1>
     </div>
 
+    <section class="card" style="padding:22px; max-width:760px; margin-bottom:20px">
+      <h2 style="font-size:22px; margin-bottom:6px">Uniformizar fichas existentes</h2>
+      <p style="margin-top:0">
+        Corrige maiúsculas e espaços nos nomes, escolas e localidades, formata telefones (912 345 678), códigos postais (4800-000),
+        NIF, emails e ano/turma (7.º A). As novas inscrições já chegam assim automaticamente.
+      </p>
+      <button class="btn btn--ghost" id="analisar-unif">Ver o que muda</button>
+    </section>
+
+    <section id="preview-unif" hidden style="margin-bottom:20px">
+      <p id="resumo-unif"></p>
+      <div class="card table-wrap">
+        <table class="table table--compact">
+          <thead><tr><th>Aluno</th><th>Campo</th><th>Antes</th><th>Depois</th></tr></thead>
+          <tbody id="linhas-unif"></tbody>
+        </table>
+      </div>
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn" id="aplicar-unif">Aplicar alterações</button>
+        <button class="btn btn--ghost" id="cancelar-unif">Cancelar</button>
+      </div>
+    </section>
+
     <section class="card" style="padding:22px; max-width:760px">
       <p style="margin-top:0">
         Importa o <strong>Formulário de Inscrição</strong> exportado da Google Sheet
@@ -114,6 +137,7 @@
 
 </main>
 
+  <script src="js/inscricao.js"></script>
   <script type="module" src="js/importar.js"></script>
 </body>
 </html>
