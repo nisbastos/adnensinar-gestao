@@ -1,12 +1,12 @@
 /* ==========================================================================
    ADN Ensinar — Gestão · Backup automático para a Google Drive
-   Cria todos os dias um Excel com todos os dados e guarda os últimos 30.
+   Cria duas vezes por dia (8h e 20h) um Excel com todos os dados e guarda os de 30 dias.
    Instruções: apps-script/README.md
    ========================================================================== */
 
 const PASTA_NOME = 'ADN Gestão — Backups';
 const PREFIXO = 'ADN Gestão - Backup ';
-const MANTER = 30;            // n.º de backups a guardar
+const MANTER = 60;            // n.º de backups a guardar (2 por dia = 30 dias)
 const MAX_REGISTO = 5000;     // últimas alterações a incluir
 
 /** Corre o backup (é esta a função agendada). */
@@ -22,7 +22,7 @@ function fazerBackup() {
   ADN_BACKUP.TABELAS.forEach(function (t) { dados[t] = lerTabela_(url, chave, t); });
   const folhas = ADN_BACKUP.construirFolhas(dados);
 
-  const nome = PREFIXO + Utilities.formatDate(new Date(), 'Europe/Lisbon', 'yyyy-MM-dd');
+  const nome = PREFIXO + Utilities.formatDate(new Date(), 'Europe/Lisbon', "yyyy-MM-dd HH'h'mm");
   const ss = SpreadsheetApp.create(nome);
   folhas.forEach(function (f, i) {
     const folha = i === 0 ? ss.getSheets()[0].setName(f.nome) : ss.insertSheet(f.nome);
@@ -55,13 +55,15 @@ function fazerBackup() {
   console.log('Backup feito: ' + nome + ' (' + dados.alunos.length + ' alunos, ' + dados.mensalidades.length + ' mensalidades)');
 }
 
-/** Agenda o backup para todos os dias por volta das 3h (corre uma vez). */
+/** Agenda o backup para todos os dias às 8h e às 20h (corre uma vez). */
 function instalarBackupDiario() {
   ScriptApp.getProjectTriggers()
     .filter(function (t) { return t.getHandlerFunction() === 'fazerBackup'; })
     .forEach(function (t) { ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger('fazerBackup').timeBased().everyDays(1).atHour(3).inTimezone('Europe/Lisbon').create();
-  console.log('Backup diário agendado para as 3h.');
+  [8, 20].forEach(function (hora) {
+    ScriptApp.newTrigger('fazerBackup').timeBased().everyDays(1).atHour(hora).nearMinute(0).inTimezone('Europe/Lisbon').create();
+  });
+  console.log('Backup agendado para as 8h e as 20h.');
 }
 
 // ---------- Auxiliares ----------

@@ -6,8 +6,8 @@ Um único projeto de Apps Script, na conta **adnensinar@gmail.com**, faz duas co
    criado no site (ou atualizado, se já existir com o mesmo NIF ou nome), com os dados uniformizados:
    nomes com maiúsculas certas, telefones `912 345 678`, código postal `4800-000`, NIF só com números,
    emails em minúsculas, ano/turma `7.º A`, escolas com siglas (`EB`, `ES`).
-2. **Backup diário** — todos os dias por volta das 3h guarda um Excel com todos os dados na pasta
-   **ADN Gestão — Backups** da Drive (ficam os últimos 30).
+2. **Backup** — todos os dias às 8h e às 20h guarda um Excel com todos os dados na pasta
+   **ADN Gestão — Backups** da Drive (ficam os dos últimos 30 dias).
 
 ## Ficheiros
 
@@ -15,7 +15,7 @@ Um único projeto de Apps Script, na conta **adnensinar@gmail.com**, faz duas co
 |---|---|
 | `Inscricoes.gs` | Cria/atualiza o aluno quando chega uma inscrição |
 | `Inscricao.gs` | Conversão e uniformização dos dados (cópia de `js/inscricao.js`) |
-| `Backup.gs` | Backup diário em Excel |
+| `Backup.gs` | Backup em Excel às 8h e 20h |
 | `Folhas.gs` | Folhas do Excel (cópia de `js/backup-folhas.js`) |
 
 ## Instalar (uma vez, ~10 min)
