@@ -85,6 +85,33 @@
       </div>
     </section>
 
+    <section class="card" style="padding:22px; max-width:760px; margin-top:20px">
+      <h2 style="font-size:22px; margin-bottom:6px">Planos de mensalidade</h2>
+      <p style="margin-top:0">
+        Importa o ficheiro <strong>mensalidades-importar.json</strong> (preparado a partir da folha "Mensalidades" do Balanço Mensal).
+        Define o plano e o valor de cada aluno, duodécimos a 9 meses (setembro a maio) e inscrição a 0 €.
+      </p>
+      <div class="field">
+        <label for="ficheiro-planos">Ficheiro JSON</label>
+        <input class="input" id="ficheiro-planos" type="file" accept=".json,application/json" />
+      </div>
+      <p class="small muted">Substitui os planos que esses alunos já tenham. Os alunos têm de estar importados antes.</p>
+    </section>
+
+    <section id="preview-planos" hidden style="margin-top:20px">
+      <p id="resumo-planos"></p>
+      <div class="card table-wrap">
+        <table class="table">
+          <thead><tr><th>Aluno (ficheiro)</th><th>Aluno no site</th><th>Plano</th><th class="num">Valor</th><th></th></tr></thead>
+          <tbody id="linhas-planos"></tbody>
+        </table>
+      </div>
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn" id="confirmar-planos">Importar planos</button>
+        <button class="btn btn--ghost" id="cancelar-planos">Cancelar</button>
+      </div>
+    </section>
+
 </main>
 
   <script type="module" src="js/importar.js"></script>

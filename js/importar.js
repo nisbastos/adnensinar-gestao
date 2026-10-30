@@ -1,4 +1,4 @@
-import { sb, requireAuth, esc, toast, failed, norm, ANOS, DIAS_CURTOS, CORES } from "./app.js";
+import { sb, requireAuth, esc, toast, failed, norm, ANOS, DIAS_CURTOS, CORES, euro } from "./app.js";
 
 await requireAuth();
 
@@ -353,5 +353,86 @@ $("confirmar-horario").addEventListener("click", async () => {
   } finally {
     btn.disabled = false;
     btn.textContent = "Importar horário";
+  }
+});
+
+
+// ==========================================================================
+// Importação dos planos de mensalidade (folha "Mensalidades" do Balanço Mensal)
+// ==========================================================================
+
+let planoPlanos = null;
+
+$("ficheiro-planos").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  let dados;
+  try { dados = JSON.parse(await f.text()); } catch { return toast("O ficheiro não é um JSON válido.", true); }
+  if (dados.formato !== "adn-mensalidades-v1") return toast("Este ficheiro não é de planos de mensalidade do ADN Ensinar.", true);
+
+  const [ra, rp] = await Promise.all([
+    sb.from("alunos").select("id, nome, nome_comum, ano_escolar, ano_turma, ativo, servico"),
+    sb.from("precos").select("id, nivel, servico, descricao"),
+  ]);
+  if (failed(ra.error, "Erro a ler alunos") || failed(rp.error, "Erro a ler preços (correu a migração 007?)")) return;
+
+  const porNome = new Map(ra.data.map((a) => [norm(a.nome).trim().replace(/\s+/g, " "), a]));
+  const linhas = dados.alunos.map((x) => {
+    const aluno = porNome.get(norm(x.nome).trim().replace(/\s+/g, " ")) ?? associar(x.nome, ra.data);
+    const preco = rp.data.find((p) => p.nivel === x.nivel && p.servico === x.categoria && p.descricao === x.descricao);
+    return { ...x, aluno, preco };
+  });
+  planoPlanos = { dados, linhas };
+
+  const ok = linhas.filter((l) => l.aluno);
+  const aprox = linhas.filter((l) => !l.exato);
+  $("resumo-planos").innerHTML =
+    `<strong>${linhas.length}</strong> alunos no ficheiro, <strong>${ok.length}</strong> encontrados no site` +
+    (linhas.length - ok.length ? ` — <strong>${linhas.length - ok.length}</strong> por encontrar (ficam de fora)` : "") +
+    `. ${aprox.length} com valor diferente da tabela de preços (fica o valor real, com o plano mais próximo).`;
+  $("linhas-planos").innerHTML = linhas.map((l) => `
+    <tr>
+      <td>${esc(l.nome)}</td>
+      <td>${l.aluno ? esc(l.aluno.nome) : '<span class="badge badge--pink">Não encontrado</span>'}</td>
+      <td class="small">${esc(l.categoria)} · ${esc(l.descricao)} <span class="muted">(${esc(l.nivel ?? "?")})</span></td>
+      <td class="num">${euro(l.valor)}</td>
+      <td>${l.exato ? "" : '<span class="badge badge--yellow">Valor próprio</span>'}</td>
+    </tr>`).join("");
+  $("preview-planos").hidden = false;
+});
+
+$("cancelar-planos").addEventListener("click", () => {
+  planoPlanos = null;
+  $("preview-planos").hidden = true;
+  $("ficheiro-planos").value = "";
+});
+
+$("confirmar-planos").addEventListener("click", async () => {
+  if (!planoPlanos) return;
+  const btn = $("confirmar-planos");
+  btn.disabled = true;
+  btn.textContent = "A importar…";
+  let feitos = 0;
+  try {
+    const { dados, linhas } = planoPlanos;
+    for (const l of linhas.filter((x) => x.aluno)) {
+      const a = l.aluno;
+      const { error: e1 } = await sb.from("aluno_planos").delete().eq("aluno_id", a.id);
+      if (failed(e1, `Erro nos planos de ${a.nome}`)) return;
+      const { error: e2 } = await sb.from("aluno_planos").insert({
+        aluno_id: a.id, preco_id: l.preco?.id ?? null, servico: l.categoria, descricao: l.descricao, valor: l.valor, desconto_pct: 0,
+      });
+      if (failed(e2, `Erro nos planos de ${a.nome}`)) return;
+      const extra = { duodecimo_meses: dados.duodecimo_meses ?? 9, inscricao_valor: dados.inscricao_valor ?? 0 };
+      if (!a.servico) extra.servico = l.categoria;
+      const { error: e3 } = await sb.from("alunos").update(extra).eq("id", a.id);
+      if (failed(e3, `Erro ao atualizar ${a.nome} (correu a migração 009?)`)) return;
+      feitos++;
+    }
+    toast(`${feitos} planos importados.`);
+    setTimeout(() => location.assign("mensalidades.html"), 1400);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Importar planos";
   }
 });
