@@ -12,15 +12,20 @@ const SEPARADOR_RESPOSTAS = 'Respostas';
 
 /** Corre a cada nova resposta (agendado por instalarInscricoesAutomaticas). */
 function aoReceberInscricao(e) {
-  const folha = e && e.range ? e.range.getSheet() : obterFolha_();
-  const linha = e && e.range ? e.range.getRow() : folha.getLastRow();
-  processarLinha_(folha, linha);
+  const folha = obterFolha_();
+  const cabecalhos = folha.getRange(1, 1, 1, folha.getLastColumn()).getValues()[0];
+  // e.values traz exatamente a resposta que acabou de chegar (não depende da ordem das linhas da folha).
+  if (e && e.values && e.values.length) {
+    processarValores_(cabecalhos, e.values, 'resposta recebida');
+  } else {
+    processarLinha_(folha, linhaMaisRecente_(folha));
+  }
 }
 
-/** Para testar: processa a última resposta da folha (pode ser corrido à mão). */
+/** Para testar: processa a inscrição mais recente (pela coluna "Carimbo de data/hora"). */
 function testarUltimaInscricao() {
   const folha = obterFolha_();
-  processarLinha_(folha, folha.getLastRow());
+  processarLinha_(folha, linhaMaisRecente_(folha));
 }
 
 /** Liga a criação automática (corre uma vez). */
@@ -41,14 +46,34 @@ function obterFolha_() {
   return SpreadsheetApp.openById(FOLHA_RESPOSTAS_ID).getSheetByName(SEPARADOR_RESPOSTAS);
 }
 
+/** N.º da linha com o "Carimbo de data/hora" mais recente (a folha pode estar ordenada por nome). */
+function linhaMaisRecente_(folha) {
+  const cab = folha.getRange(1, 1, 1, folha.getLastColumn()).getValues()[0];
+  const col = cab.findIndex(function (h) { return ADN_INSCRICAO.chave(h).indexOf('carimbo de data') === 0; });
+  if (col < 0) throw new Error('Não encontrei a coluna "Carimbo de data/hora".');
+  const n = folha.getLastRow() - 1;
+  if (n < 1) throw new Error('A folha não tem respostas.');
+  const datas = folha.getRange(2, col + 1, n, 1).getValues();
+  let melhor = -1, linha = -1;
+  datas.forEach(function (r, i) {
+    const t = r[0] instanceof Date ? r[0].getTime() : Date.parse(r[0]);
+    if (!isNaN(t) && t > melhor) { melhor = t; linha = i + 2; }
+  });
+  if (linha < 0) throw new Error('Nenhuma data válida na coluna "Carimbo de data/hora".');
+  return linha;
+}
+
 function processarLinha_(folha, numLinha) {
   const ultimaColuna = folha.getLastColumn();
   const cabecalhos = folha.getRange(1, 1, 1, ultimaColuna).getValues()[0];
   const valores = folha.getRange(numLinha, 1, 1, ultimaColuna).getValues()[0];
+  processarValores_(cabecalhos, valores, 'linha ' + numLinha);
+}
 
+function processarValores_(cabecalhos, valores, origem) {
   const aluno = ADN_INSCRICAO.linhaParaAluno(cabecalhos, valores);
   if (!aluno) {
-    console.log('Linha ' + numLinha + ' sem nome de aluno — ignorada.');
+    console.log(origem + ' sem nome de aluno — ignorada.');
     return;
   }
   aluno.ativo = true;
@@ -59,10 +84,10 @@ function processarLinha_(folha, numLinha) {
     const alteracoes = {};
     Object.keys(aluno).forEach(function (k) { if (aluno[k] !== null && aluno[k] !== '') alteracoes[k] = aluno[k]; });
     pedido_('patch', '/rest/v1/alunos?id=eq.' + existente.id, alteracoes);
-    console.log('Aluno atualizado: ' + aluno.nome);
+    console.log('Aluno atualizado (' + origem + '): ' + aluno.nome);
   } else {
     pedido_('post', '/rest/v1/alunos', aluno);
-    console.log('Aluno criado: ' + aluno.nome);
+    console.log('Aluno criado (' + origem + '): ' + aluno.nome);
   }
 }
 
