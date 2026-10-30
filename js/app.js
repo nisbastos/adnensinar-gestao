@@ -107,27 +107,43 @@ export async function requireAuth() {
 
 function renderHeader(user) {
   const here = location.pathname.split("/").pop() || "hoje.html";
+  const nome = perfil.nome || String(user.email).split("@")[0];
   const header = document.createElement("header");
-  header.className = "app-header";
+  header.className = "site-header";
+  document.body.classList.add("com-header");
   header.innerHTML = `
-    <div class="app-header__inner">
-      <a class="brand" href="hoje.html">
-        <img src="assets/badge.png" alt="" />
-        <span class="brand__text">
-          <span class="brand__title">ADN Ensinar</span>
-          <span class="brand__sub">Gestão</span>
+    <div class="header-inner">
+      <a class="logo-link" href="hoje.html" aria-label="ADN Ensinar — página inicial">
+        <img class="logo-badge" src="assets/badge.png" alt="Logótipo ADN Ensinar" />
+        <span class="logo-text">
+          <span class="logo-title">ADN Ensinar</span>
+          <span class="logo-tag">Centro de Estudos • Guimarães</span>
         </span>
       </a>
-      <nav class="nav" aria-label="Navegação principal">
+
+      <nav class="site-nav" id="menu-principal" aria-label="Menu principal">
         ${NAV.filter((n) => pode(n.acesso)).map((n) => {
           const ativo = n.grupo === "config" ? CONFIG.some((c) => c.href === here) : n.href === here;
           return `<a href="${n.href}" ${ativo ? 'aria-current="page"' : ""}>${n.label}</a>`;
         }).join("")}
       </nav>
-      <div class="header-user">
-        <button type="button" class="header-user__email link-conta" id="conta" title="Mudar a minha password">${esc(perfil.nome || user.email)}</button>
-        <span class="badge ${perfil.admin ? "" : "badge--green"}">${perfil.admin ? "Admin" : "Gestão"}</span>
-        <button class="btn btn--ghost btn--sm" id="logout">Sair</button>
+
+      <div class="header-actions">
+        <button type="button" class="header-cta" id="conta-btn" aria-haspopup="true" aria-expanded="false">
+          ${esc(nome)} <span class="header-cta__seta" aria-hidden="true">▾</span>
+        </button>
+        <div class="conta-menu" id="conta-menu" hidden>
+          <div class="conta-menu__info">
+            <strong>${esc(perfil.nome || "A minha conta")}</strong>
+            <span>${esc(user.email)}</span><br />
+            <span class="badge ${perfil.admin ? "" : "badge--green"}" style="margin-top:6px">${perfil.admin ? "Admin" : "Gestão"}</span>
+          </div>
+          <button type="button" id="conta">Mudar password</button>
+          <button type="button" id="logout">Sair</button>
+        </div>
+        <button class="nav-toggle" type="button" id="nav-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-principal">
+          <span></span><span></span><span></span>
+        </button>
       </div>
     </div>`;
   document.body.prepend(header);
@@ -139,11 +155,34 @@ function renderHeader(user) {
     sub.innerHTML = CONFIG.map((c) => `<a href="${c.href}" ${c.href === here ? 'aria-current="page"' : ""}>${c.label}</a>`).join("");
     document.querySelector("main.page")?.prepend(sub);
   }
+
+  // Menu da conta
+  const btn = header.querySelector("#conta-btn");
+  const menu = header.querySelector("#conta-menu");
+  const fecharMenu = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menu.hidden = !menu.hidden;
+    btn.setAttribute("aria-expanded", String(!menu.hidden));
+  });
+  document.addEventListener("click", (e) => { if (!menu.contains(e.target)) fecharMenu(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharMenu(); });
   header.querySelector("#logout").addEventListener("click", async () => {
     await sb.auth.signOut();
     window.location.replace("index.html");
   });
-  header.querySelector("#conta").addEventListener("click", abrirConta);
+  header.querySelector("#conta").addEventListener("click", () => { fecharMenu(); abrirConta(); });
+
+  // Menu em telemóvel (igual ao site público)
+  const toggle = header.querySelector("#nav-toggle");
+  toggle.addEventListener("click", () => {
+    const aberto = document.body.classList.toggle("nav-open");
+    toggle.setAttribute("aria-expanded", String(aberto));
+    toggle.setAttribute("aria-label", aberto ? "Fechar menu" : "Abrir menu");
+  });
+  header.querySelectorAll(".site-nav a").forEach((a) =>
+    a.addEventListener("click", () => document.body.classList.remove("nav-open"))
+  );
 }
 
 /** Pequena janela para cada pessoa mudar a sua password. */
