@@ -154,6 +154,16 @@
           return String(a.nivel).localeCompare(String(b.nivel)) || String(a.servico).localeCompare(String(b.servico)) || a.ordem - b.ordem;
         }).map(function (p) { return [p.nivel, p.servico, p.descricao, num(p.valor), simNao(p.ativo)]; })) });
     }
+    // ---- Calendário (testes e entregas)
+    if ((d.avaliacoes || []).length) {
+      folhas.push({ nome: "Calendário", linhas: [["Data", "Tipo", "Disciplina", "Aluno", "Vale para a turma", "Escola", "Ano/turma", "Notas"]].concat(
+        d.avaliacoes.slice().sort(function (a, b) { return String(a.data).localeCompare(String(b.data)); }).map(function (e) {
+          var a = alunos[e.aluno_id] || {};
+          return [data(e.data), e.tipo, discs[e.disciplina_id] ? discs[e.disciplina_id].nome : "", nomeAluno(a),
+            simNao(e.aplica_turma), txt(a.escola), txt(a.ano_turma), txt(e.notas)];
+        })) });
+    }
+
     // ---- Registo de alterações (resumo)
     if ((d.registo_alteracoes || []).length) {
       var ACAO = { INSERT: "Criou", UPDATE: "Alterou", DELETE: "Apagou" };
@@ -172,7 +182,7 @@
   /** Tabelas a ler da base de dados (e ordem do registo, só os mais recentes). */
   var TABELAS = [
     "alunos", "professores", "salas", "disciplinas", "horario", "horario_alunos", "aluno_disciplinas",
-    "professor_disciplinas", "precos", "aluno_planos", "mensalidades", "registo_alteracoes",
+    "professor_disciplinas", "precos", "aluno_planos", "mensalidades", "avaliacoes", "registo_alteracoes",
   ];
 
   raiz.ADN_BACKUP = { construirFolhas: construirFolhas, TABELAS: TABELAS, nomeAluno: nomeAluno };

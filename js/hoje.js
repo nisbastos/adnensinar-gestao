@@ -1,5 +1,5 @@
 import {
-  nomeAluno, sb, requireAuth, esc, failed, norm, hhmm, toMin, DIAS, MESES,
+  chaveTurma, nomeAluno, sb, requireAuth, esc, failed, norm, hhmm, toMin, DIAS, MESES,
   euro, cent, inicioMes, nomeMes,
 } from "./app.js";
 
@@ -10,6 +10,8 @@ const DIA_LIMITE = 8; // dia a partir do qual uma mensalidade por pagar está em
 
 let aulas = [], alunos = [], profs = [], salas = [], disciplinas = [], mensalidades = [];
 let filtroTipo = "";
+let avaliacoes = [];
+const isoHoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 const profPorId = (id) => profs.find((p) => p.id === id);
 const salaPorId = (id) => salas.find((s) => s.id === id);
@@ -39,11 +41,12 @@ async function carregar() {
   const mes = inicioMes(new Date());
   const rs = await Promise.all([
     sb.from("horario").select("*, horario_alunos(aluno_id)"),
-    sb.from("alunos").select("id, nome, nome_comum, ativo, saude, autoriza_saida, data_nascimento"),
+    sb.from("alunos").select("id, nome, nome_comum, escola, ano_turma, ativo, saude, autoriza_saida, data_nascimento"),
     sb.from("professores").select("id, nome, cor"),
     sb.from("salas").select("id, nome, ordem"),
     sb.from("disciplinas").select("id, nome"),
     sb.from("mensalidades").select("aluno_id, total, estado, valor_pago").eq("mes", mes),
+    sb.from("avaliacoes").select("*").gte("data", isoHoje()).order("data"),
   ]);
   const nomes = ["horário", "alunos", "professores", "salas", "disciplinas"];
   for (let i = 0; i < nomes.length; i++) if (failed(rs[i].error, `Erro a carregar ${nomes[i]}`)) return;
@@ -54,6 +57,7 @@ async function carregar() {
   salas = rs[3].data;
   disciplinas = rs[4].data;
   mensalidades = rs[5].error ? null : rs[5].data; // null = tabela ainda não existe
+  avaliacoes = rs[6].error ? null : rs[6].data;
   render();
 }
 
@@ -82,6 +86,7 @@ function render() {
   renderAgora(hoje ? doDia.filter((a) => toMin(a.hora_inicio) <= minAgora && minAgora < toMin(a.hora_fim)) : null);
   renderAulas(doDia, hoje ? minAgora : null);
   renderAlertas(doDia);
+  renderTestes(agora);
   renderAniversarios(agora);
   renderMensalidades(agora);
 }
@@ -192,6 +197,30 @@ function renderAlertas(doDia) {
       </ul>
     </div>`);
   $("alertas").innerHTML = blocos.join("") || `<p class="muted">Nada a assinalar.</p>`;
+}
+
+function renderTestes(agora) {
+  if (avaliacoes === null) { $("testes").innerHTML = `<p class="muted small">Corre a migração 011 no Supabase para ativar o calendário.</p>`; return; }
+  const limite = new Date(agora); limite.setDate(limite.getDate() + 7);
+  const lim = `${limite.getFullYear()}-${String(limite.getMonth() + 1).padStart(2, "0")}-${String(limite.getDate()).padStart(2, "0")}`;
+  const lista = avaliacoes.filter((e) => e.data <= lim).sort((a, b) => a.data.localeCompare(b.data));
+  if (!lista.length) { $("testes").innerHTML = `<p class="muted">Nada marcado nos próximos 7 dias.</p>`; return; }
+  const ativos = alunos.filter((a) => a.ativo);
+  const abr = (e) => {
+    const a = alunoPorId(e.aluno_id);
+    if (!a) return [];
+    const k = e.aplica_turma && chaveTurma(a);
+    return k ? ativos.filter((x) => chaveTurma(x) === k) : [a];
+  };
+  $("testes").innerHTML = `<ul class="lista-simples">${lista.map((e) => {
+    const [y, m, d] = e.data.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    const diff = Math.round((dt - new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())) / 86400000);
+    const quando = diff === 0 ? "Hoje" : diff === 1 ? "Amanhã" : `${d}/${m}`;
+    return `<li><span><strong>${esc(discPorId(e.disciplina_id)?.nome ?? e.tipo)}</strong> <span class="muted small">${esc(e.tipo)}</span><br>
+      <span class="small">${abr(e).map((a) => esc(nomeAluno(a))).join(", ")}</span></span>
+      <span class="badge ${diff <= 1 ? "badge--pink" : ""}">${quando}</span></li>`;
+  }).join("")}</ul>`;
 }
 
 function renderAniversarios(agora) {

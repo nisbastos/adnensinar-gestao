@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Calendário | ADN Ensinar Gestão</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <main class="page">
+    <div class="page-head">
+      <h1>Calendário</h1>
+      <div class="toolbar">
+        <div class="field-aluno">
+          <input class="input search" id="f-aluno-busca" type="search" list="lista-alunos" placeholder="Procurar aluno…" autocomplete="off" />
+          <datalist id="lista-alunos"></datalist>
+        </div>
+        <select class="select" id="f-disc-filtro" aria-label="Disciplina">
+          <option value="">Todas as disciplinas</option>
+        </select>
+        <select class="select" id="f-tipo-filtro" aria-label="Tipo">
+          <option value="">Todos os tipos</option>
+        </select>
+        <button class="btn" id="novo">+ Novo</button>
+      </div>
+    </div>
+
+    <p class="filtro-aluno" id="filtro-info" hidden></p>
+
+    <div class="cal-layout">
+      <section class="card cal">
+        <div class="cal__head">
+          <div class="month-nav">
+            <button type="button" class="btn btn--ghost btn--sm" id="mes-ant" aria-label="Mês anterior">‹</button>
+            <h2 id="mes-titulo"></h2>
+            <button type="button" class="btn btn--ghost btn--sm" id="mes-seg" aria-label="Mês seguinte">›</button>
+          </div>
+          <button type="button" class="btn btn--ghost btn--sm" id="hoje">Hoje</button>
+        </div>
+        <div class="cal__grid" id="grelha"></div>
+        <div class="legend" id="legenda"></div>
+      </section>
+
+      <aside class="card painel cal-proximos">
+        <div class="painel__head">
+          <h2>Próximos</h2>
+          <select class="select select--sm" id="janela" aria-label="Período">
+            <option value="7">7 dias</option>
+            <option value="14" selected>14 dias</option>
+            <option value="30">30 dias</option>
+          </select>
+        </div>
+        <div id="proximos"></div>
+      </aside>
+    </div>
+  </main>
+
+  <dialog class="modal" id="modal">
+    <form id="form" method="dialog" novalidate>
+      <div class="modal__head">
+        <h2 id="modal-title">Novo</h2>
+        <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="modal__body">
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="m-aluno">Aluno *</label>
+            <input class="input" id="m-aluno" list="lista-alunos" placeholder="Escreve o nome…" autocomplete="off" />
+            <div class="small muted" id="m-turma"></div>
+          </div>
+          <div class="field">
+            <label for="m-data">Data *</label>
+            <input class="input" id="m-data" name="data" type="date" />
+          </div>
+          <div class="field">
+            <label for="m-tipo">Tipo *</label>
+            <select class="select" id="m-tipo" name="tipo"></select>
+          </div>
+          <div class="field span-2">
+            <label for="m-disc">Disciplina</label>
+            <select class="select" id="m-disc" name="disciplina_id"></select>
+          </div>
+          <label class="check span-2">
+            <input type="checkbox" name="aplica_turma" id="m-turma-check" checked />
+            Vale para a turma toda (mesma escola, ano e turma)
+          </label>
+          <div class="field span-2">
+            <label for="m-notas">Matéria / notas</label>
+            <textarea class="textarea" id="m-notas" name="notas" placeholder="ex.: Funções e equações, págs. 40–62"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--danger" id="apagar" hidden>Apagar</button>
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn" id="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/calendario.js"></script>
+</body>
+</html>

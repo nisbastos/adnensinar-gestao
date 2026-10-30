@@ -30,6 +30,7 @@ export const CORES = ["#c1dbdc", "#cee3d1", "#ffe7a9", "#fbd1c1", "#d9d2ec", "#f
 const NAV = [
   { href: "hoje.html", label: "Hoje" },
   { href: "horario.html", label: "Horário" },
+  { href: "calendario.html", label: "Calendário" },
   { href: "alunos.html", label: "Alunos" },
   { href: "mensalidades.html", label: "Mensalidades", acesso: "financas" },
   { href: "professores.html", label: "Configuração", grupo: "config", acesso: "admin" },
@@ -68,7 +69,7 @@ async function carregarPerfil(user) {
   if (!data || !data.ativo) return null;
   return {
     admin: data.perfil === "admin",
-    financas: data.perfil === "admin" || data.ver_financas,
+    financas: data.perfil === "admin", // mensalidades: só Administração
     nome: data.nome ?? "",
     email: user.email,
   };
@@ -451,3 +452,30 @@ export function nomeAluno(a) {
 
 /** Texto para pesquisa: nome completo + nome comum. */
 export const textoAluno = (a) => `${a?.nome ?? ""} ${a?.nome_comum ?? ""}`;
+
+
+// Turmas -----------------------------------------------------------------------
+
+/** "7ºA", "7 a", "10.B", "11°SE1" → { ano: 7, turma: "A" }; sem letra de turma → null. */
+export function partesTurma(anoTurma) {
+  const t = String(anoTurma ?? "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/ANO/g, "").replace(/[º°ª.\s\-_/]/g, "");
+  const m = t.match(/^(\d{1,2})([A-Z]{1,3}\d{0,2})$/);
+  return m ? { ano: Number(m[1]), turma: m[2] } : null;
+}
+
+/**
+ * Chave da turma de um aluno: mesma escola + mesmo ano + mesma turma.
+ * Só junta alunos se a escola e a turma estiverem escritas da mesma forma (ignora maiúsculas e acentos).
+ */
+export function chaveTurma(a) {
+  const escola = norm(a?.escola ?? "").replace(/[^a-z0-9]+/g, " ").trim();
+  const p = partesTurma(a?.ano_turma);
+  return escola && p ? `${escola}|${p.ano}${p.turma}` : null;
+}
+
+/** "7.º A · Escola X" */
+export function rotuloTurma(a) {
+  const p = partesTurma(a?.ano_turma);
+  return [p ? `${p.ano}.º ${p.turma}` : a?.ano_turma || a?.ano_escolar, a?.escola].filter(Boolean).join(" · ");
+}

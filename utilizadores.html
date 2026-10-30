@@ -24,7 +24,6 @@
             <th data-sort="nome">Nome</th>
             <th data-sort="email">Email</th>
             <th data-sort="perfil">Perfil</th>
-            <th data-sort="financas" data-dir="desc">Vê mensalidades</th>
             <th data-sort="ativo" data-dir="desc">Estado</th>
           </tr>
         </thead>
@@ -38,7 +37,7 @@
       <ol class="passos">
         <li>No Supabase: <strong>Authentication → Users → Add user → Create new user</strong>.
           Escreve o email e uma password temporária e marca <em>Auto Confirm User</em>.</li>
-        <li>A pessoa aparece aqui automaticamente como <strong>Gestão</strong>, sem acesso a mensalidades.
+        <li>A pessoa aparece aqui automaticamente como <strong>Gestão</strong>.
           Clica nela para pôr o nome e ajustar o perfil.</li>
         <li>Envia-lhe o endereço do site, o email e a password temporária. Depois de entrar, ela muda a password
           clicando no próprio nome, no canto superior direito.</li>
@@ -46,13 +45,13 @@
       <div class="perfis">
         <div>
           <span class="badge">Admin</span>
-          <p class="small">Tudo: alunos, horário, mensalidades, configuração, utilizadores, registo de alterações,
+          <p class="small">Tudo: alunos, horário, calendário, mensalidades, configuração, utilizadores, registo de alterações,
             backup e importação. Pode apagar.</p>
         </div>
         <div>
           <span class="badge badge--green">Gestão</span>
-          <p class="small">Hoje, Horário e Alunos (ver, criar e editar, incluindo saúde e credenciais). Não apaga e não vê
-            Configuração, Registo, Backup nem Importar. Com "Vê mensalidades": também Mensalidades e o plano na ficha do aluno.</p>
+          <p class="small">Hoje, Horário, Calendário e Alunos (ver, criar e editar, incluindo saúde e credenciais).
+            No calendário pode também apagar. Não vê Mensalidades, Configuração, Registo, Backup nem Importar, e não apaga alunos nem aulas.</p>
         </div>
       </div>
       <p class="small muted" style="margin-bottom:0">Para tirar o acesso a alguém, desativa-o aqui (deixa de conseguir entrar) ou apaga o login no Supabase.</p>
@@ -78,10 +77,6 @@
               <option value="gestao">Gestão</option>
               <option value="admin">Admin</option>
             </select>
-          </div>
-          <div class="field">
-            <label>&nbsp;</label>
-            <label class="check"><input type="checkbox" name="ver_financas" id="f-fin" /> Vê mensalidades</label>
           </div>
           <label class="check span-2"><input type="checkbox" name="ativo" id="f-ativo" /> Conta ativa (pode entrar)</label>
         </div>
@@ -109,7 +104,7 @@
     const estadoOrdem = { chave: "nome", dir: "asc" };
     const CHAVES = {
       nome: (u) => u.nome || u.email, email: (u) => u.email, perfil: (u) => u.perfil,
-      financas: (u) => u.perfil === "admin" || u.ver_financas, ativo: (u) => u.ativo,
+      ativo: (u) => u.ativo,
     };
 
     async function carregar() {
@@ -126,19 +121,12 @@
           <td><strong>${esc(u.nome) || '<span class="muted">(sem nome)</span>'}</strong>${u.id === eu.id ? ' <span class="muted small">(tu)</span>' : ""}</td>
           <td>${esc(u.email)}</td>
           <td><span class="badge ${u.perfil === "admin" ? "" : "badge--green"}">${u.perfil === "admin" ? "Admin" : "Gestão"}</span></td>
-          <td>${u.perfil === "admin" || u.ver_financas ? "Sim" : '<span class="muted">Não</span>'}</td>
           <td>${u.ativo ? '<span class="badge badge--green">Ativa</span>' : '<span class="badge badge--off">Desativada</span>'}</td>
         </tr>`).join("");
     }
 
     ligarOrdenacao(document.querySelector("table.table"), null, estadoOrdem, render);
 
-    function sincronizarCampos() {
-      const admin = $("f-perfil").value === "admin";
-      $("f-fin").disabled = admin;
-      if (admin) $("f-fin").checked = true;
-    }
-    $("f-perfil").addEventListener("change", sincronizarCampos);
 
     function abrir(u) {
       editId = u.id;
@@ -150,7 +138,6 @@
       $("f-perfil").disabled = proprio;
       $("f-ativo").disabled = proprio;
       $("aviso-proprio").hidden = !proprio;
-      sincronizarCampos();
       modal.showModal();
     }
 
@@ -164,7 +151,7 @@
       const d = {
         nome: $("f-nome").value.trim() || null,
         perfil: $("f-perfil").value,
-        ver_financas: $("f-perfil").value === "admin" || $("f-fin").checked,
+        ver_financas: $("f-perfil").value === "admin",
         ativo: $("f-ativo").checked,
       };
       if (editId === eu.id) { d.perfil = "admin"; d.ativo = true; }
