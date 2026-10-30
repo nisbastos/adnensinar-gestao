@@ -945,3 +945,6 @@ body.sem-financas .so-financas { display: none !important; }
 }
 .info:hover::after, .info:focus::after { opacity: 1; }
 .table-wrap--dicas { overflow: visible; }
+
+.emails-bar { display: flex; flex-wrap: wrap; gap: 12px 28px; padding: 14px 18px; margin-bottom: 16px; }
+.emails-bar__item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

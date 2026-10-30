@@ -1,5 +1,5 @@
 import {
-  nomeAluno, textoAluno, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal,
+  URL_EMAILS, nomeAluno, textoAluno, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal,
   ordenar, ligarOrdenacao, euro, cent, inicioMes, isoLocal, nomeMes, anoLetivo,
 } from "./app.js";
 
@@ -44,7 +44,7 @@ const inicioAnoLetivo = (iso) => `${anoLetivo(iso).slice(0, 4)}-09-01`;
 
 async function carregar() {
   const [r1, r2, r4, r5] = await Promise.all([
-    sb.from("alunos").select("id, nome, nome_comum, ano_escolar, ativo, duodecimo_meses, desconto_pct, inscricao_valor"),
+    sb.from("alunos").select("id, nome, nome_comum, ano_escolar, ativo, duodecimo_meses, desconto_pct, inscricao_valor, encarregado_email"),
     sb.from("aluno_planos").select("*"),
     sb.from("mensalidades").select("*").eq("mes", mes),
     sb.from("mensalidades").select("aluno_id, mes, inscricao").gte("mes", inicioAnoLetivo(mes)).lt("mes", mes),
@@ -64,6 +64,7 @@ async function carregar() {
   linhas = r4.data;
   doAnoLetivo = r5.data;
   render();
+  carregarEnvios();
 }
 
 const alunoPorId = (id) => alunos.find((a) => a.id === id);
@@ -283,3 +284,117 @@ $("apagar").addEventListener("click", async () => {
 });
 
 carregar();
+
+
+// ==========================================================================
+// Emails de pagamento (dia 1 e dia 8) — enviados pela conta do ADN via Apps Script
+// ==========================================================================
+
+const modalEmail = $("modal-email");
+wireModal(modalEmail);
+let envios = [];
+let tipoEmail = null;
+const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+
+const TIPOS_EMAIL = {
+  inicio: {
+    titulo: "Informação de pagamento",
+    assunto: "Início do Período de Pagamento",
+    explica: "Vai para <strong>todos os encarregados de educação</strong> dos alunos ativos: informa que começou o período de pagamento e que se estende até ao dia 8.",
+  },
+  ultimo: {
+    titulo: "Lembrete de prazo",
+    assunto: "Último Dia para Pagamento",
+    explica: "Vai <strong>só para os encarregados dos alunos com a mensalidade por pagar</strong> (ou paga em parte) neste mês: relembra que hoje, dia 8, termina o prazo.",
+  },
+};
+
+function emailsDe(lista) {
+  const vistos = new Set();
+  for (const a of lista) {
+    for (const raw of String(a.encarregado_email ?? "").split(/[,;\s]+/)) {
+      const e = raw.trim().toLowerCase();
+      if (e && EMAIL_VALIDO.test(e) && !/\.con$/.test(e)) vistos.add(e);
+    }
+  }
+  return [...vistos];
+}
+
+/** Quem recebe (pré-visualização; o envio real volta a calcular do lado do servidor). */
+function alvoEmail(tipo) {
+  if (tipo === "inicio") {
+    const ativos = alunos.filter((a) => a.ativo);
+    return { alunos: ativos, emails: emailsDe(ativos), semEmail: ativos.filter((a) => !emailsDe([a]).length) };
+  }
+  const ids = new Set(linhas.filter((l) => ["Por pagar", "Parcial"].includes(l.estado)).map((l) => l.aluno_id));
+  const lista = alunos.filter((a) => ids.has(a.id));
+  return { alunos: lista, emails: emailsDe(lista), semEmail: lista.filter((a) => !emailsDe([a]).length) };
+}
+
+async function carregarEnvios() {
+  const { data, error } = await sb.from("envios_email").select("*").eq("mes", mes).order("enviado_em", { ascending: false });
+  envios = error ? [] : data;
+  for (const t of ["inicio", "ultimo"]) {
+    const ult = envios.find((e) => e.tipo === t && !e.teste);
+    $(`info-${t}`).textContent = ult
+      ? `Enviado a ${new Date(ult.enviado_em).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} · ${ult.destinatarios} emails`
+      : `Ainda não enviado em ${nomeMes(mes).split(" ")[0]}`;
+  }
+}
+
+function abrirEmail(tipo) {
+  tipoEmail = tipo;
+  const t = TIPOS_EMAIL[tipo];
+  const alvo = alvoEmail(tipo);
+  const ult = envios.find((e) => e.tipo === tipo && !e.teste);
+  $("email-titulo").textContent = t.titulo;
+  $("email-corpo").innerHTML = `
+    <p style="margin-top:0">Assunto: <strong>📚 ADN Ensinar | ${t.assunto} - ${nomeMes(mes).replace(" de ", " ").replace(/^./, (c) => c.toUpperCase())}</strong></p>
+    <p>${t.explica}</p>
+    ${ult ? `<p class="alerta" style="margin:0 0 12px">Este email já foi enviado este mês, a ${new Date(ult.enviado_em).toLocaleString("pt-PT")}. Enviar outra vez?</p>` : ""}
+    ${tipo === "ultimo" && !linhas.length ? `<p class="alerta" style="margin:0 0 12px">Ainda não há mensalidades geradas em ${nomeMes(mes)} — gera-as e marca as pagas antes de enviar o lembrete.</p>` : ""}
+    <p><strong>${alvo.emails.length}</strong> ${alvo.emails.length === 1 ? "email" : "emails"} de encarregados
+       (${alvo.alunos.length} ${alvo.alunos.length === 1 ? "aluno" : "alunos"}), enviados em BCC a partir de adnensinar@gmail.com.</p>
+    ${tipo === "ultimo" && alvo.alunos.length ? `<details><summary class="small">Ver alunos com a mensalidade por pagar</summary>
+      <p class="small">${alvo.alunos.map((a) => esc(nomeAluno(a))).sort((x, y) => x.localeCompare(y, "pt")).join(", ")}</p></details>` : ""}
+    ${alvo.semEmail.length ? `<p class="small txt-danger">Sem email válido do encarregado (não recebem): ${alvo.semEmail.map((a) => esc(nomeAluno(a))).join(", ")}</p>` : ""}
+    <p class="small muted">Dica: envia primeiro um teste para veres o email tal como os pais o vão receber.</p>`;
+  $("email-enviar").textContent = `Enviar a ${alvo.emails.length}`;
+  $("email-enviar").disabled = !alvo.emails.length;
+  modalEmail.showModal();
+}
+
+async function enviarEmail(teste) {
+  if (!URL_EMAILS) {
+    return toast("O envio de emails ainda não está ligado: falta publicar o Apps Script (ver apps-script/README.md).", true);
+  }
+  const alvo = alvoEmail(tipoEmail);
+  if (!teste && !confirm(`Confirmas o envio de "${TIPOS_EMAIL[tipoEmail].titulo}" para ${alvo.emails.length} encarregados de educação?`)) return;
+
+  const botoes = [$("email-teste"), $("email-enviar")];
+  botoes.forEach((b) => (b.disabled = true));
+  const textoAntes = $("email-enviar").textContent;
+  $(teste ? "email-teste" : "email-enviar").textContent = "A enviar…";
+  try {
+    const { data } = await sb.auth.getSession();
+    const r = await fetch(URL_EMAILS, {
+      method: "POST",
+      body: JSON.stringify({ tipo: tipoEmail, mes, teste, token: data.session?.access_token }),
+    });
+    const res = await r.json();
+    if (!res.ok) throw new Error(res.erro);
+    toast(teste ? "Teste enviado para adnensinar@gmail.com." : `Enviado para ${res.enviados} encarregados.`);
+    if (!teste) modalEmail.close();
+    carregarEnvios();
+  } catch (e) {
+    toast(`Não foi possível enviar: ${e.message}`, true);
+  } finally {
+    botoes.forEach((b) => (b.disabled = false));
+    $("email-teste").textContent = "Enviar teste para adnensinar@gmail.com";
+    $("email-enviar").textContent = textoAntes;
+  }
+}
+
+document.querySelectorAll("[data-email]").forEach((b) => b.addEventListener("click", () => abrirEmail(b.dataset.email)));
+$("email-teste").addEventListener("click", () => enviarEmail(true));
+$("email-enviar").addEventListener("click", () => enviarEmail(false));

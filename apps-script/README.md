@@ -1,6 +1,6 @@
 # Google Apps Script — automações do ADN Gestão
 
-Um único projeto de Apps Script, na conta **adnensinar@gmail.com**, faz duas coisas:
+Um único projeto de Apps Script, na conta **adnensinar@gmail.com**, faz três coisas:
 
 1. **Inscrições automáticas** — sempre que chega uma resposta ao *Formulário de Inscrição*, o aluno é
    criado no site (ou atualizado, se já existir com o mesmo NIF ou nome), com os dados uniformizados:
@@ -8,6 +8,9 @@ Um único projeto de Apps Script, na conta **adnensinar@gmail.com**, faz duas co
    emails em minúsculas, ano/turma `7.º A`, escolas com siglas (`EB`, `ES`).
 2. **Backup** — todos os dias às 8h e às 20h guarda um Excel com todos os dados na pasta
    **ADN Gestão — Backups** da Drive (ficam os dos últimos 30 dias).
+3. **Emails de pagamento** — os botões da página Mensalidades ("Informação de pagamento" e
+   "Lembrete de prazo") enviam os emails a partir da conta do ADN, com os textos de sempre.
+   O lembrete só vai para os encarregados com a mensalidade por pagar.
 
 ## Ficheiros
 
@@ -17,6 +20,7 @@ Um único projeto de Apps Script, na conta **adnensinar@gmail.com**, faz duas co
 | `Inscricao.gs` | Conversão e uniformização dos dados (cópia de `js/inscricao.js`) |
 | `Backup.gs` | Backup em Excel às 8h e 20h |
 | `Folhas.gs` | Folhas do Excel (cópia de `js/backup-folhas.js`) |
+| `Emails.gs` | Emails de pagamento (dia 1 e dia 8) pedidos pelo site |
 
 ## Instalar (uma vez, ~10 min)
 
@@ -36,6 +40,22 @@ Um único projeto de Apps Script, na conta **adnensinar@gmail.com**, faz duas co
 6. **Testar o backup:** função `fazerBackup` → **Executar** e confirma o ficheiro na pasta
    **ADN Gestão — Backups**.
 7. **Ligar o backup diário:** função `instalarBackupDiario` → **Executar**.
+
+### Ligar os botões de email da página Mensalidades
+
+1. Corre no Supabase a migração `supabase/012_envios_email.sql`.
+2. No projeto, acrescenta o ficheiro `Emails` (conteúdo de `Emails.gs`) e guarda.
+3. (Opcional) Função `testarEmailInicio` → **Executar**: chega um email de teste a adnensinar@gmail.com.
+4. **Implementar → Nova implementação** (*Deploy → New deployment*) → tipo **Aplicação Web** (*Web app*):
+   - Executar como: **Eu (adnensinar@gmail.com)**
+   - Quem tem acesso: **Qualquer pessoa** (*Anyone*) — o script só envia se o pedido vier de um Admin com sessão no site.
+5. Copia o **URL da aplicação Web** (termina em `/exec`) e envia-o ao Claude para o ligar ao site
+   (fica em `js/app.js`, `URL_EMAILS`).
+6. **Desliga a automação antiga** (projeto "Automatização Emails" → Acionadores → apaga os dos dias 1 e 8),
+   senão os pais recebem os emails duas vezes.
+
+Se mudares `Emails.gs` depois, é preciso **Implementar → Gerir implementações → editar → Nova versão**
+para o site passar a usar a versão nova (o URL mantém-se).
 
 Se alguma execução falhar, a Google envia um email automático para a conta do ADN
 (e o erro fica em **Execuções**, no menu da esquerda).

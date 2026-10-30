@@ -10,6 +10,10 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = "https://ttnqlwpvrbzcqyqrbalz.supabase.co";
 const SUPABASE_KEY = "sb_publishable_AVkYIS-2Vhr2k4rbUtSvQA_XiILmluK";
 
+// Endereço da "Aplicação Web" do Apps Script que envia os emails de pagamento
+// (apps-script/Emails.gs). Fica vazio até ser publicada — ver apps-script/README.md.
+export const URL_EMAILS = "";
+
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true },
 });

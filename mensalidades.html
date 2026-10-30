@@ -24,6 +24,17 @@
 
     <section class="stats" id="stats"></section>
 
+    <section class="card emails-bar">
+      <div class="emails-bar__item">
+        <button type="button" class="btn btn--ghost" data-email="inicio">✉ Informação de pagamento <span class="muted small">(dia 1)</span></button>
+        <span class="small muted" id="info-inicio"></span>
+      </div>
+      <div class="emails-bar__item">
+        <button type="button" class="btn btn--ghost" data-email="ultimo">✉ Lembrete de prazo <span class="muted small">(dia 8)</span></button>
+        <span class="small muted" id="info-ultimo"></span>
+      </div>
+    </section>
+
     <div class="toolbar toolbar--spread">
       <div class="toolbar">
         <input class="input search" id="search" type="search" placeholder="Pesquisar aluno…" />
@@ -135,6 +146,21 @@
         <button type="button" class="btn btn--danger so-admin" id="apagar">Apagar</button>
         <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
         <button type="submit" class="btn" id="guardar">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="modal-email">
+    <form method="dialog" novalidate>
+      <div class="modal__head">
+        <h2 id="email-titulo">Enviar email</h2>
+        <button type="button" class="modal__close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="modal__body" id="email-corpo"></div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--ghost" id="email-teste">Enviar teste para adnensinar@gmail.com</button>
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="button" class="btn" id="email-enviar">Enviar</button>
       </div>
     </form>
   </dialog>
