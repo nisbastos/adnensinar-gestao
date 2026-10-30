@@ -17,7 +17,7 @@
       <h1>Utilizadores</h1>
     </div>
 
-    <div class="card table-wrap">
+    <div class="card table-wrap table-wrap--dicas">
       <table class="table">
         <thead>
           <tr>
@@ -32,30 +32,6 @@
       <div class="empty" id="vazio" hidden>Corre a migração 010 no Supabase para ativar os perfis.</div>
     </div>
 
-    <section class="card painel" style="margin-top:20px; max-width:820px">
-      <div class="painel__head"><h2>Dar acesso a uma pessoa nova</h2></div>
-      <ol class="passos">
-        <li>No Supabase: <strong>Authentication → Users → Add user → Create new user</strong>.
-          Escreve o email e uma password temporária e marca <em>Auto Confirm User</em>.</li>
-        <li>A pessoa aparece aqui automaticamente como <strong>Gestão</strong>.
-          Clica nela para pôr o nome e ajustar o perfil.</li>
-        <li>Envia-lhe o endereço do site, o email e a password temporária. Depois de entrar, ela muda a password
-          clicando no próprio nome, no canto superior direito.</li>
-      </ol>
-      <div class="perfis">
-        <div>
-          <span class="badge">Admin</span>
-          <p class="small">Tudo: alunos, horário, calendário, mensalidades, configuração, utilizadores, registo de alterações,
-            backup e importação. Pode apagar.</p>
-        </div>
-        <div>
-          <span class="badge badge--green">Gestão</span>
-          <p class="small">Hoje, Horário, Calendário e Alunos (ver, criar e editar, incluindo saúde e credenciais).
-            No calendário pode também apagar. Não vê Mensalidades, Configuração, Registo, Backup nem Importar, e não apaga alunos nem aulas.</p>
-        </div>
-      </div>
-      <p class="small muted" style="margin-bottom:0">Para tirar o acesso a alguém, desativa-o aqui (deixa de conseguir entrar) ou apaga o login no Supabase.</p>
-    </section>
   </main>
 
   <dialog class="modal" id="modal">
@@ -72,7 +48,7 @@
             <input class="input" id="f-nome" name="nome" placeholder="ex.: Liliana" />
           </div>
           <div class="field">
-            <label for="f-perfil">Perfil</label>
+            <label for="f-perfil">Perfil <span id="perfil-info"></span></label>
             <select class="select" id="f-perfil" name="perfil">
               <option value="gestao">Gestão</option>
               <option value="admin">Admin</option>
@@ -98,6 +74,12 @@
     const form = $("form");
     wireModal(modal);
 
+    const PAPEIS = {
+      admin: "Admin: vê e faz tudo — alunos, horário, calendário, mensalidades, configuração, utilizadores, registo de alterações, backup e importação. Pode apagar.",
+      gestao: "Gestão: Hoje, Horário, Calendário e Alunos (ver, criar e editar, incluindo saúde e credenciais). No calendário também pode apagar. Não vê Mensalidades, Configuração, Registo, Backup nem Importar, e não apaga alunos nem aulas.",
+    };
+    const info = (texto) => `<span class="info" tabindex="0" role="img" aria-label="${esc(texto)}" data-dica="${esc(texto)}">i</span>`;
+
     let lista = [];
     let editId = null;
 
@@ -120,7 +102,7 @@
         <tr data-id="${u.id}">
           <td><strong>${esc(u.nome) || '<span class="muted">(sem nome)</span>'}</strong>${u.id === eu.id ? ' <span class="muted small">(tu)</span>' : ""}</td>
           <td>${esc(u.email)}</td>
-          <td><span class="badge ${u.perfil === "admin" ? "" : "badge--green"}">${u.perfil === "admin" ? "Admin" : "Gestão"}</span></td>
+          <td class="nowrap"><span class="badge ${u.perfil === "admin" ? "" : "badge--green"}">${u.perfil === "admin" ? "Admin" : "Gestão"}</span> ${info(PAPEIS[u.perfil])}</td>
           <td>${u.ativo ? '<span class="badge badge--green">Ativa</span>' : '<span class="badge badge--off">Desativada</span>'}</td>
         </tr>`).join("");
     }
@@ -138,6 +120,7 @@
       $("f-perfil").disabled = proprio;
       $("f-ativo").disabled = proprio;
       $("aviso-proprio").hidden = !proprio;
+      $("perfil-info").innerHTML = info(PAPEIS.admin + "\n\n" + PAPEIS.gestao);
       modal.showModal();
     }
 
