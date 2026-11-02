@@ -138,6 +138,9 @@ function renderAgora(lista) {
 
 let ultimoDoDia = [], ultimoMin = null;
 
+/** 10.º a 12.º ano: o secundário não tem sumários. */
+const secundario = (a) => Number(String(a.ano_escolar ?? a.ano_turma ?? "").match(/\d+/)?.[0]) >= 10;
+
 function renderSumarios(doDia, minAgora) {
   ultimoDoDia = doDia; ultimoMin = minAgora;
   const apoio = doDia.filter((a) => a.categoria === "Apoio ao Estudo");
@@ -170,7 +173,7 @@ function renderSumarios(doDia, minAgora) {
       <li>
         <span>${a.sumario_url
           ? `<a href="${esc(a.sumario_url)}" target="_blank" rel="noopener"><strong>${esc(a.nome)}</strong></a>`
-          : `<strong>${esc(a.nome)}</strong><span class="small muted sumarios__nota">Sem sumário ligado</span>`}</span>
+          : `<strong>${esc(a.nome)}</strong>${secundario(a) ? "" : `<span class="small muted sumarios__nota">Sem sumário ligado</span>`}`}</span>
         <span class="sumarios__ano">${esc(a.ano_escolar ?? "")}</span>
       </li>`).join("")}
       ${soNomes.map((n) => `<li><span><strong>${esc(n)}</strong><span class="small muted sumarios__nota">Sem ficha associada</span></span></li>`).join("")}
