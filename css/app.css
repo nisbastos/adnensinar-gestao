@@ -597,6 +597,12 @@ table.table {
 .painel__head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .painel__head h2 { font-size: 20px; }
 .painel p { margin: 0; }
+.sumarios { list-style: none; margin: 0; padding: 0; columns: 2 260px; column-gap: 24px; }
+.sumarios li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--c-line); break-inside: avoid; }
+.sumarios a { color: var(--c-brand-2-dark); text-decoration: underline; text-underline-offset: 2px; }
+.sumarios__nota { display: block; }
+.sumarios__ano { flex-shrink: 0; font-size: 13px; color: var(--c-mid); white-space: nowrap; }
+.painel .sumarios__pasta { margin-top: 12px; }
 
 .segmented--sm button { padding: 4px 10px; font-size: 13px; }
 

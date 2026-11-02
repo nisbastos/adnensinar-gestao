@@ -12,6 +12,9 @@ const SUPABASE_KEY = "sb_publishable_AVkYIS-2Vhr2k4rbUtSvQA_XiILmluK";
 
 // Endereço da "Aplicação Web" do Apps Script que envia os emails de pagamento
 // (apps-script/Emails.gs). Fica vazio até ser publicada — ver apps-script/README.md.
+/** Pasta geral dos sumários dos alunos (Drive da conta do ADN). */
+export const URL_SUMARIOS = "https://drive.google.com/drive/folders/1zhwjJUSu6-KY70wg8fXiZs9xvEY51dwS";
+
 export const URL_EMAILS = "https://script.google.com/macros/s/AKfycbwrGRRuNffFiilcyW8Ka9-sUo8T41XYI_Xwpt_YQnFR-VJ9kmM89ZnD7iLebznSt5nN/exec";
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {

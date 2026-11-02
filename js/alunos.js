@@ -123,6 +123,7 @@ function abrir(aluno = null) {
   $("f-falta").hidden = !falta.length;
   $("f-falta").innerHTML = falta.length ? `<strong>Ficha incompleta:</strong> ${esc(textoEmFalta(falta))}.` : "";
   duoManual = aluno?.duodecimo_valor != null;
+  atualizarSumario();
   planosEdicao = (planosPorAluno.get(aluno?.id) ?? []).map((p) => ({ ...p }));
   atualizarMostra();
   renderPlanos();
@@ -253,6 +254,14 @@ $("plano-add").addEventListener("click", () => {
   renderPlanos();
 });
 
+// Link dos sumários: botão "Abrir" só com link.
+function atualizarSumario() {
+  const url = $("f-sum").value.trim();
+  $("f-sum-abrir").hidden = !/^https?:\/\//.test(url);
+  $("f-sum-abrir").href = url || "#";
+}
+$("f-sum").addEventListener("input", atualizarSumario);
+
 // Pré-visualização do nome que aparece no resto do site.
 const atualizarMostra = () => {
   $("f-mostra").textContent = nomeAluno({ nome: $("f-nome").value, nome_comum: $("f-comum").value }) || "—";
@@ -343,6 +352,7 @@ form.addEventListener("submit", async (e) => {
     dados.duodecimo_valor = !duoManual || dados.duodecimo_valor == null || cent(dados.duodecimo_valor) === calc
       ? null : cent(dados.duodecimo_valor);
   }
+  if (!alunos.some((x) => "sumario_url" in x)) delete dados.sumario_url; // migração 015 por correr
 
   $("guardar").disabled = true;
   try {

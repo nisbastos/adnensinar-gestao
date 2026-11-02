@@ -1,6 +1,6 @@
 import {
   chaveTurma, nomeAluno, sb, requireAuth, esc, failed, norm, hhmm, toMin, DIAS, MESES,
-  euro, cent, inicioMes, nomeMes, camposEmFalta, textoEmFalta, perfil,
+  euro, cent, inicioMes, nomeMes, camposEmFalta, textoEmFalta, perfil, URL_SUMARIOS,
 } from "./app.js";
 
 await requireAuth();
@@ -9,6 +9,7 @@ const $ = (id) => document.getElementById(id);
 const DIA_LIMITE = 8; // dia a partir do qual uma mensalidade por pagar está em atraso
 
 let aulas = [], alunos = [], profs = [], salas = [], disciplinas = [], mensalidades = [];
+let salaSumarios = null; // sala escolhida no cartão Sumários
 let planosPorAluno = null; // aluno_id → n.º de planos (null = sem acesso a finanças)
 let filtroTipo = "";
 let avaliacoes = [];
@@ -88,6 +89,7 @@ function render() {
 
   renderAgora(hoje ? doDia.filter((a) => toMin(a.hora_inicio) <= minAgora && minAgora < toMin(a.hora_fim)) : null);
   renderAulas(doDia, hoje ? minAgora : null);
+  renderSumarios(doDia, hoje ? minAgora : null);
   renderAlertas(doDia);
   renderTestes(agora);
   renderAniversarios(agora);
@@ -131,6 +133,58 @@ function renderAgora(lista) {
       </div>`;
   }).join("")}</div>`;
 }
+
+// ---------- Sumários (alunos do apoio ao estudo, por sala) ----------
+
+let ultimoDoDia = [], ultimoMin = null;
+
+function renderSumarios(doDia, minAgora) {
+  ultimoDoDia = doDia; ultimoMin = minAgora;
+  const apoio = doDia.filter((a) => a.categoria === "Apoio ao Estudo");
+  const ids = [...new Set(apoio.map((a) => a.sala_id ?? "__"))]
+    .sort((x, y) => (salaPorId(x)?.ordem ?? 99) - (salaPorId(y)?.ordem ?? 99));
+  const pasta = `<p class="small sumarios__pasta"><a href="${URL_SUMARIOS}" target="_blank" rel="noopener">Abrir a pasta de todos os sumários ↗</a></p>`;
+
+  if (!ids.length) {
+    $("sum-salas").innerHTML = "";
+    $("sumarios").innerHTML = `<p class="muted">Sem apoio ao estudo neste dia.</p>${pasta}`;
+    return;
+  }
+  // Por defeito: a sala com apoio a decorrer agora; senão a primeira.
+  if (!ids.includes(salaSumarios)) {
+    const agora = minAgora == null ? null
+      : apoio.find((a) => toMin(a.hora_inicio) <= minAgora && minAgora < toMin(a.hora_fim));
+    salaSumarios = agora ? agora.sala_id ?? "__" : ids[0];
+  }
+  $("sum-salas").innerHTML = ids.map((id) =>
+    `<button type="button" data-sala="${esc(id)}" aria-pressed="${id === salaSumarios}">${esc(salaPorId(id)?.nome ?? "Sem sala")}</button>`).join("");
+
+  const daSala = apoio.filter((a) => (a.sala_id ?? "__") === salaSumarios);
+  const lista = [...new Set(daSala.flatMap((a) => a.alunos))]
+    .map(alunoPorId).filter(Boolean)
+    .sort((x, y) => x.nome.localeCompare(y.nome, "pt"));
+  const soNomes = [...new Set(daSala.flatMap(porAssociar))];
+
+  $("sumarios").innerHTML = `
+    <ul class="sumarios">${lista.map((a) => `
+      <li>
+        <span>${a.sumario_url
+          ? `<a href="${esc(a.sumario_url)}" target="_blank" rel="noopener"><strong>${esc(a.nome)}</strong></a>`
+          : `<strong>${esc(a.nome)}</strong><span class="small muted sumarios__nota">Sem sumário ligado</span>`}</span>
+        <span class="sumarios__ano">${esc(a.ano_escolar ?? "")}</span>
+      </li>`).join("")}
+      ${soNomes.map((n) => `<li><span><strong>${esc(n)}</strong><span class="small muted sumarios__nota">Sem ficha associada</span></span></li>`).join("")}
+    </ul>
+    ${!lista.length && !soNomes.length ? `<p class="muted">Sem alunos nesta sala.</p>` : ""}
+    ${pasta}`;
+}
+
+$("sum-salas").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-sala]");
+  if (!b) return;
+  salaSumarios = b.dataset.sala;
+  renderSumarios(ultimoDoDia, ultimoMin);
+});
 
 function renderAulas(doDia, minAgora) {
   const lista = doDia.filter((a) => !filtroTipo || a.categoria === filtroTipo);
