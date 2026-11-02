@@ -53,6 +53,30 @@
     }).join(" ");
   }
 
+  // Escolas: nome único para cada escola (para agrupar turmas e manter as fichas iguais).
+  // [palavras que identificam a escola (sem acentos, minúsculas), nome a usar]
+  var ESCOLAS = [
+    [["santos simoes"], "Escola Secundária Santos Simões"],
+    [["meira"], "Escola Básica João de Meira"],
+    [["egas moniz"], "Escola Básica Egas Moniz"],
+    [["martins sarmento"], "Escola Secundária Martins Sarmento"],
+    [["francisco de holanda", "f. holanda", "fco holanda"], "Escola Secundária Francisco de Holanda"],
+    [["santa luzia"], "Escola Básica de Santa Luzia"],
+    [["monte largo"], "Escola Básica de Monte Largo"],
+    [["cisave"], "Escola Profissional CISAVE"],
+  ];
+  var NOMES_ESCOLAS = ESCOLAS.map(function (e) { return e[1]; });
+
+  /** "escola santos simões", "Santos Simões " → "Escola Secundária Santos Simões"; outras ficam só arrumadas. */
+  function escola(s) {
+    if (vazio(s)) return null;
+    var k = chave(s).replace(/\s+/g, " ");
+    for (var i = 0; i < ESCOLAS.length; i++) {
+      for (var j = 0; j < ESCOLAS[i][0].length; j++) if (k.indexOf(ESCOLAS[i][0][j]) >= 0) return ESCOLAS[i][1];
+    }
+    return nomeComSiglas(s);
+  }
+
   /** Primeira letra maiúscula, resto como está. */
   function frase(s) {
     if (vazio(s)) return null;
@@ -162,7 +186,7 @@
     codigo_postal: codigoPostal,
     localidade: nomeProprio,
     telemovel_aluno: telefone,
-    escola: nomeComSiglas,
+    escola: escola,
     ano_turma: anoTurma,
     dificuldades: lista,
     saude: saude,
@@ -256,6 +280,8 @@
     diferencas: diferencas,
     chave: chave,
     anoEscolar: anoEscolar,
+    escola: escola,
+    NOMES_ESCOLAS: NOMES_ESCOLAS,
     _t: { nomeProprio: nomeProprio, nomeComSiglas: nomeComSiglas, telefone: telefone, codigoPostal: codigoPostal, anoTurma: anoTurma, data: data, lista: lista, saude: saude },
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

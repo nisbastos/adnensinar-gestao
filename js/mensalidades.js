@@ -44,7 +44,7 @@ const inicioAnoLetivo = (iso) => `${anoLetivo(iso).slice(0, 4)}-09-01`;
 
 async function carregar() {
   const [r1, r2, r4, r5] = await Promise.all([
-    sb.from("alunos").select("id, nome, nome_comum, ano_escolar, ativo, duodecimo_meses, desconto_pct, inscricao_valor, encarregado_email"),
+    sb.from("alunos").select("*"),
     sb.from("aluno_planos").select("*"),
     sb.from("mensalidades").select("*").eq("mes", mes),
     sb.from("mensalidades").select("aluno_id, mes, inscricao").gte("mes", inicioAnoLetivo(mes)).lt("mes", mes),
@@ -203,7 +203,7 @@ $("gerar").addEventListener("click", async () => {
       const planosT = cent(planos.get(a.id).reduce((t, p) => t + Number(p.valor || 0), 0));
       const mensalidade = cent(planosT - planosT * Number(a.desconto_pct || 0) / 100);
       const meses = Number(a.duodecimo_meses || 0);
-      const duodecimo = meses > 0 ? cent(mensalidade / meses) : 0;
+      const duodecimo = a.duodecimo_valor != null ? cent(a.duodecimo_valor) : meses > 0 ? cent(mensalidade / meses) : 0;
       const inscricao = jaTemMensalidade.has(a.id) ? 0 : cent(a.inscricao_valor || 0);
       return { aluno_id: a.id, mes, mensalidade, duodecimo, inscricao, estado: "Por pagar" };
     });
@@ -252,7 +252,11 @@ formPagar.addEventListener("submit", async (e) => {
   if (!metodo) return toast("Escolhe o método de pagamento.", true);
   $("pagar-ok").disabled = true;
   const { error } = await sb.from("mensalidades")
-    .update({ estado: "Pago", pago_em: isoLocal(new Date()), valor_pago: null, metodo, fatura_emitida: $("pagar-fatura").checked })
+    .update({
+      estado: "Pago", pago_em: isoLocal(new Date()), valor_pago: null, metodo,
+      // sem a migração 013 a coluna ainda não existe
+      ...(linhas.some((x) => "fatura_emitida" in x) ? { fatura_emitida: $("pagar-fatura").checked } : {}),
+    })
     .eq("id", pagarId);
   if (failed(error, "Não foi possível marcar como pago")) { $("pagar-ok").disabled = false; return; }
   modalPagar.close();
@@ -312,6 +316,7 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const d = formData(form);
   for (const k of ["mensalidade", "duodecimo", "inscricao"]) d[k] = cent(d[k] ?? 0);
+  if (!linhas.some((x) => "fatura_emitida" in x)) delete d.fatura_emitida; // migração 013 por correr
   d.valor_pago = d.estado === "Parcial" && d.valor_pago != null ? cent(d.valor_pago) : null;
   if (d.estado === "Por pagar" || d.estado === "Isento") { d.pago_em = null; d.metodo = null; }
   if (["Pago", "Parcial"].includes(d.estado)) {

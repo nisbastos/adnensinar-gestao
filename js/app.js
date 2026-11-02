@@ -483,3 +483,32 @@ export function rotuloTurma(a) {
   const p = partesTurma(a?.ano_turma);
   return [p ? `${p.ano}.º ${p.turma}` : a?.ano_turma || a?.ano_escolar, a?.escola].filter(Boolean).join(" · ");
 }
+
+// ---------- Fichas incompletas ----------
+
+/**
+ * O que falta na ficha de um aluno ativo (lista de rótulos curtos).
+ * `planos` = n.º de planos de mensalidade do aluno; só é verificado se for passado (quem vê finanças).
+ */
+export function camposEmFalta(a, planos) {
+  if (!a || a.ativo === false) return [];
+  const vazio = (v) => v == null || String(v).trim() === "";
+  const falta = [];
+  if (vazio(a.data_nascimento)) falta.push("Data de nascimento");
+  if (vazio(a.nif)) falta.push("NIF");
+  if (vazio(a.escola)) falta.push("Escola");
+  if (vazio(a.ano_escolar) && vazio(a.ano_turma)) falta.push("Ano escolar");
+  if (vazio(a.encarregado_nome)) falta.push("Encarregado de educação");
+  if (vazio(a.encarregado_telefone)) falta.push("Telemóvel do EE");
+  if (vazio(a.encarregado_email)) falta.push("Email do EE");
+  if (planos != null && !planos) falta.push("Mensalidade");
+  return falta;
+}
+
+/** "Mensalidade em falta", "Data de nascimento e NIF em falta" */
+export function textoEmFalta(falta) {
+  if (!falta.length) return "";
+  // minúscula a seguir à primeira, exceto siglas (NIF)
+  const l = falta.map((f, i) => (i === 0 || /^[A-Z]{2}/.test(f) ? f : f.charAt(0).toLowerCase() + f.slice(1)));
+  return (l.length === 1 ? l[0] : l.slice(0, -1).join(", ") + " e " + l[l.length - 1]) + " em falta";
+}

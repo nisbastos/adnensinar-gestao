@@ -76,7 +76,8 @@
       var planosT = pl.reduce(function (t, p) { return t + Number(p.valor || 0); }, 0);
       var mens = planosT * (1 - Number(a.desconto_pct || 0) / 100);
       var meses = Number(a.duodecimo_meses || 0);
-      var mensal = Math.round((mens + (meses > 0 ? mens / meses : 0)) * 100) / 100;
+      var duo = a.duodecimo_valor != null && a.duodecimo_valor !== "" ? Number(a.duodecimo_valor) : (meses > 0 ? mens / meses : 0);
+      var mensal = Math.round((mens + duo) * 100) / 100;
       return [
         a.nome, txt(a.nome_comum), nomeAluno(a), simNao(a.ativo), txt(a.ano_escolar), txt(a.ano_turma), txt(a.escola),
         txt(a.servico), nomesDisc(discAluno[a.id]),

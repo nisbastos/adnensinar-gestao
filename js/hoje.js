@@ -1,6 +1,6 @@
 import {
   chaveTurma, nomeAluno, sb, requireAuth, esc, failed, norm, hhmm, toMin, DIAS, MESES,
-  euro, cent, inicioMes, nomeMes,
+  euro, cent, inicioMes, nomeMes, camposEmFalta, textoEmFalta, perfil,
 } from "./app.js";
 
 await requireAuth();
@@ -9,6 +9,7 @@ const $ = (id) => document.getElementById(id);
 const DIA_LIMITE = 8; // dia a partir do qual uma mensalidade por pagar está em atraso
 
 let aulas = [], alunos = [], profs = [], salas = [], disciplinas = [], mensalidades = [];
+let planosPorAluno = null; // aluno_id → n.º de planos (null = sem acesso a finanças)
 let filtroTipo = "";
 let avaliacoes = [];
 const isoHoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -41,12 +42,13 @@ async function carregar() {
   const mes = inicioMes(new Date());
   const rs = await Promise.all([
     sb.from("horario").select("*, horario_alunos(aluno_id)"),
-    sb.from("alunos").select("id, nome, nome_comum, escola, ano_turma, ativo, saude, autoriza_saida, data_nascimento"),
+    sb.from("alunos").select("*"),
     sb.from("professores").select("id, nome, cor"),
     sb.from("salas").select("id, nome, ordem"),
     sb.from("disciplinas").select("id, nome"),
     sb.from("mensalidades").select("aluno_id, total, estado, valor_pago").eq("mes", mes),
     sb.from("avaliacoes").select("*").gte("data", isoHoje()).order("data"),
+    perfil.financas ? sb.from("aluno_planos").select("aluno_id") : Promise.resolve({ data: null, error: true }),
   ]);
   const nomes = ["horário", "alunos", "professores", "salas", "disciplinas"];
   for (let i = 0; i < nomes.length; i++) if (failed(rs[i].error, `Erro a carregar ${nomes[i]}`)) return;
@@ -58,6 +60,7 @@ async function carregar() {
   disciplinas = rs[4].data;
   mensalidades = rs[5].error ? null : rs[5].data; // null = tabela ainda não existe
   avaliacoes = rs[6].error ? null : rs[6].data;
+  planosPorAluno = rs[7].error ? null : rs[7].data.reduce((m, p) => m.set(p.aluno_id, (m.get(p.aluno_id) ?? 0) + 1), new Map());
   render();
 }
 
@@ -196,6 +199,21 @@ function renderAlertas(doDia) {
         ${nPorAssociar ? `<li>${nPorAssociar} nome(s) de alunos por associar à ficha</li>` : ""}
       </ul>
     </div>`);
+  // Fichas de alunos ativos com dados em falta (mensalidade só para quem vê finanças).
+  const incompletos = alunos
+    .map((a) => ({ a, falta: camposEmFalta(a, planosPorAluno ? planosPorAluno.get(a.id) ?? 0 : null) }))
+    .filter((x) => x.falta.length)
+    .sort((x, y) => nomeAluno(x.a).localeCompare(nomeAluno(y.a), "pt"));
+  if (incompletos.length) {
+    const MAX = 8;
+    blocos.push(`
+    <div class="alerta alerta--leve">
+      <div class="alerta__titulo">Fichas incompletas <span class="muted">(${incompletos.length})</span></div>
+      <ul>${incompletos.slice(0, MAX).map(({ a, falta }) =>
+        `<li><a href="alunos.html?id=${encodeURIComponent(a.id)}"><strong>${esc(nomeAluno(a))}</strong></a><br><span class="small">${esc(textoEmFalta(falta))}</span></li>`).join("")}</ul>
+      ${incompletos.length > MAX ? `<a class="alerta__mais" href="alunos.html?incompletas">Ver todas (${incompletos.length})</a>` : ""}
+    </div>`);
+  }
   $("alertas").innerHTML = blocos.join("") || `<p class="muted">Nada a assinalar.</p>`;
 }
 

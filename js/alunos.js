@@ -1,4 +1,4 @@
-import { textoAluno, nomeAluno, ordenar, ligarOrdenacao, sincronizar, euro, cent, nivelDoAno, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, ANOS, DIAS_CURTOS, hhmm } from "./app.js";
+import { camposEmFalta, textoEmFalta, perfil, textoAluno, nomeAluno, ordenar, ligarOrdenacao, sincronizar, euro, cent, nivelDoAno, sb, requireAuth, esc, toast, failed, norm, formData, fillForm, wireModal, ANOS, DIAS_CURTOS, hhmm } from "./app.js";
 
 await requireAuth();
 
@@ -8,6 +8,7 @@ const modal = $("modal");
 const form = $("form");
 wireModal(modal);
 
+$("lista-escolas").innerHTML = (globalThis.ADN_INSCRICAO?.NOMES_ESCOLAS ?? []).map((n) => `<option value="${esc(n)}"></option>`).join("");
 $("f-ano").innerHTML = `<option value="">—</option>` + ANOS.map((a) => `<option>${a}</option>`).join("");
 
 let alunos = [];
@@ -64,6 +65,9 @@ async function carregar() {
   render();
 }
 
+/** O que falta na ficha (mensalidade só para quem vê finanças). */
+const emFalta = (a) => camposEmFalta(a, perfil.financas ? (planosPorAluno.get(a.id) ?? []).length : null);
+
 const nomesDisc = (alunoId) =>
   disciplinas.filter((d) => discPorAluno.get(alunoId)?.has(d.id)).map((d) => d.nome).join(", ");
 
@@ -74,6 +78,7 @@ function render() {
   const filtrados = alunos.filter((a) => {
     if (estado === "ativos" && !a.ativo) return false;
     if (estado === "inativos" && a.ativo) return false;
+    if (estado === "incompletas" && !emFalta(a).length) return false;
     if (!q) return true;
     return norm([textoAluno(a), a.escola, a.encarregado_nome, a.encarregado_email, nomesDisc(a.id), a.nif, a.localidade, a.ano_turma].join(" ")).includes(q);
   });
@@ -89,11 +94,15 @@ function render() {
       const pw = a.password_institucional
         ? `<span class="pw-cell">${ver ? esc(a.password_institucional) : "••••••"}<button type="button" data-pw="${a.id}">${ver ? "esconder" : "ver"}</button></span>`
         : vazio;
+      const falta = emFalta(a);
+      const marcaFalta = falta.length
+        ? `<div class="falta" title="${esc(textoEmFalta(falta))}">⚠ ${falta.length === 1 ? esc(falta[0]) + " em falta" : falta.length + " dados em falta"}</div>`
+        : "";
       const saida = a.autoriza_saida == null ? vazio
         : a.autoriza_saida ? `<span class="badge badge--green">Sim</span>` : `<span class="badge badge--pink">Não</span>`;
       return `
         <tr data-id="${a.id}">
-          <td class="col-nome"><strong>${esc(a.nome)}</strong>${a.nome_comum ? `<div class="small muted">“${esc(a.nome_comum)}”</div>` : ""}${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
+          <td class="col-nome"><strong>${esc(a.nome)}</strong>${a.nome_comum ? `<div class="small muted">“${esc(a.nome_comum)}”</div>` : ""}${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}${marcaFalta}</td>
           <td class="nowrap">${esc(a.ano_escolar) || vazio}</td>
           <td class="small">${esc(a.telemovel_aluno) || vazio}</td>
           <td>${esc(a.encarregado_nome) || vazio}</td>
@@ -110,11 +119,10 @@ function abrir(aluno = null) {
   editId = aluno?.id ?? null;
   form.reset();
   fillForm(form, aluno ?? { ativo: true, duodecimo_meses: 9, desconto_pct: 0, inscricao_valor: 40 });
-  const escolhidas = discPorAluno.get(aluno?.id) ?? new Set();
-  $("f-disc").innerHTML = disciplinas
-    .filter((d) => d.ativo || escolhidas.has(d.id))
-    .map((d) => `<label class="chip"><input type="checkbox" data-multi="1" value="${d.id}" ${escolhidas.has(d.id) ? "checked" : ""} /><span>${esc(d.nome)}</span></label>`)
-    .join("") || `<span class="muted small">Sem disciplinas — cria-as na página Disciplinas.</span>`;
+  const falta = aluno ? emFalta(aluno) : [];
+  $("f-falta").hidden = !falta.length;
+  $("f-falta").innerHTML = falta.length ? `<strong>Ficha incompleta:</strong> ${esc(textoEmFalta(falta))}.` : "";
+  duoManual = aluno?.duodecimo_valor != null;
   planosEdicao = (planosPorAluno.get(aluno?.id) ?? []).map((p) => ({ ...p }));
   atualizarMostra();
   renderPlanos();
@@ -184,22 +192,38 @@ function renderPlanos() {
   renderConta();
 }
 
+// Duodécimo: mostra o valor calculado; se for alterado à mão, fica como valor especial.
+let duoManual = false;
+
 function renderConta() {
-  if (!planosEdicao.length) { $("plano-resumo").innerHTML = ""; return; }
   const meses = Number($("f-duo").value || 0);
   const descP = Number($("f-descp").value || 0);
   const c = contaMensalidade(planosEdicao, meses, descP, Number($("f-inscv").value || 0));
+  if (!duoManual) $("f-duov").value = planosEdicao.length && meses > 0 ? c.duodecimo.toFixed(2) : "";
+  $("f-duov").placeholder = meses > 0 && planosEdicao.length ? c.duodecimo.toFixed(2) : "0.00";
+  const especial = duoManual && $("f-duov").value !== "" && cent($("f-duov").value) !== c.duodecimo;
+  $("duo-auto").hidden = !especial;
+  if (!planosEdicao.length) { $("plano-resumo").innerHTML = ""; return; }
+  const calculado = c.duodecimo;
+  if (especial) {
+    c.duodecimo = cent($("f-duov").value);
+    c.mensal = cent(c.mensalidade + c.duodecimo);
+  }
   const linha = (rot, val, cls = "") => `<div class="mens-conta__linha ${cls}"><span>${rot}</span><span>${val}</span></div>`;
   $("plano-resumo").innerHTML =
     linha(planosEdicao.length > 1 ? "Planos" : "Plano", euro(c.planosT)) +
     (c.desconto ? linha(`Desconto ${descP}%`, "− " + euro(c.desconto)) : "") +
     linha("Mensalidade", euro(c.mensalidade)) +
-    (meses > 0 ? linha(`Duodécimo (${euro(c.mensalidade)} ÷ ${meses})`, "+ " + euro(c.duodecimo)) : "") +
+    (especial
+      ? linha(`Duodécimo especial (cálculo: ${euro(calculado)})`, "+ " + euro(c.duodecimo))
+      : meses > 0 ? linha(`Duodécimo (${euro(c.mensalidade)} ÷ ${meses})`, "+ " + euro(c.duodecimo)) : "") +
     linha("Total por mês", euro(c.mensal), "is-total") +
     (c.inscricao ? linha("1.º mês do ano letivo (+ inscrição " + euro(c.inscricao) + ")", euro(c.mensal + c.inscricao), "is-sub") : "");
 }
 
 ["f-duo", "f-descp", "f-inscv"].forEach((id) => $(id).addEventListener("input", renderConta));
+$("f-duov").addEventListener("input", () => { duoManual = $("f-duov").value !== ""; renderConta(); });
+$("duo-auto").addEventListener("click", () => { duoManual = false; renderConta(); });
 
 $("planos").addEventListener("change", (e) => {
   const linha = e.target.closest(".plano");
@@ -310,7 +334,15 @@ form.addEventListener("submit", async (e) => {
   const dados = globalThis.ADN_INSCRICAO ? ADN_INSCRICAO.uniformizar(formData(form)) : formData(form);
   if (!dados.nome) return toast("O nome é obrigatório.", true);
 
-  const discIds = [...$("f-disc").querySelectorAll("input:checked")].map((i) => i.value);
+  // Duodécimo: só fica gravado se for diferente do cálculo (valor especial); vazio = calculado.
+  // (sem a migração 014 a coluna ainda não existe: não a envia.)
+  if (!perfil.financas || !alunos.some((x) => "duodecimo_valor" in x)) delete dados.duodecimo_valor;
+  else {
+    const calc = contaMensalidade(planosEdicao.filter((p) => p.preco_id || Number(p.valor) > 0),
+      Number(dados.duodecimo_meses || 0), Number(dados.desconto_pct || 0), 0).duodecimo;
+    dados.duodecimo_valor = !duoManual || dados.duodecimo_valor == null || cent(dados.duodecimo_valor) === calc
+      ? null : cent(dados.duodecimo_valor);
+  }
 
   $("guardar").disabled = true;
   try {
@@ -323,8 +355,6 @@ form.addEventListener("submit", async (e) => {
       if (failed(error, "Não foi possível guardar")) return;
       id = data.id;
     }
-    const e3 = await sincronizar("aluno_disciplinas", "aluno_id", id, "disciplina_id", discIds);
-    if (failed(e3, "O aluno foi guardado, mas houve um erro nas disciplinas")) return;
     const e4 = await guardarPlanos(id);
     if (failed(e4, "O aluno foi guardado, mas houve um erro no plano de mensalidade")) return;
   } finally {
@@ -346,4 +376,9 @@ $("apagar").addEventListener("click", async () => {
   carregar();
 });
 
-carregar();
+await carregar();
+
+// alunos.html?id=… abre logo a ficha (ligações da página Hoje); ?incompletas mostra só as fichas por completar.
+const params = new URLSearchParams(location.search);
+if (params.has("incompletas")) { $("filter-estado").value = "incompletas"; render(); }
+if (params.get("id")) { const a = alunos.find((x) => x.id === params.get("id")); if (a) abrir(a); }
