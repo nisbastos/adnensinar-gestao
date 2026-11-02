@@ -95,14 +95,11 @@ function render() {
         ? `<span class="pw-cell">${ver ? esc(a.password_institucional) : "••••••"}<button type="button" data-pw="${a.id}">${ver ? "esconder" : "ver"}</button></span>`
         : vazio;
       const falta = emFalta(a);
-      const marcaFalta = falta.length
-        ? `<div class="falta" title="${esc(textoEmFalta(falta))}">⚠ ${falta.length === 1 ? esc(falta[0]) + " em falta" : falta.length + " dados em falta"}</div>`
-        : "";
       const saida = a.autoriza_saida == null ? vazio
         : a.autoriza_saida ? `<span class="badge badge--green">Sim</span>` : `<span class="badge badge--pink">Não</span>`;
       return `
-        <tr data-id="${a.id}">
-          <td class="col-nome"><strong>${esc(a.nome)}</strong>${a.nome_comum ? `<div class="small muted">“${esc(a.nome_comum)}”</div>` : ""}${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}${marcaFalta}</td>
+        <tr data-id="${a.id}"${falta.length ? ` class="row--falta" title="${esc(textoEmFalta(falta))}"` : ""}>
+          <td class="col-nome"><strong>${esc(a.nome)}</strong>${a.nome_comum ? `<div class="small muted">“${esc(a.nome_comum)}”</div>` : ""}${a.ativo ? "" : ` <span class="badge badge--off">Inativo</span>`}</td>
           <td class="nowrap">${esc(a.ano_escolar) || vazio}</td>
           <td class="small">${esc(a.telemovel_aluno) || vazio}</td>
           <td>${esc(a.encarregado_nome) || vazio}</td>

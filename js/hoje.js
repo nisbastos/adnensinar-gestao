@@ -171,12 +171,13 @@ function renderSumarios(doDia, minAgora) {
   $("sumarios").innerHTML = `
     <ul class="sumarios">${lista.map((a) => `
       <li>
-        <span>${a.sumario_url
-          ? `<a href="${esc(a.sumario_url)}" target="_blank" rel="noopener"><strong>${esc(a.nome)}</strong></a>`
-          : `<strong>${esc(a.nome)}</strong>${secundario(a) ? "" : `<span class="small muted sumarios__nota">Sem sumário ligado</span>`}`}</span>
-        <span class="sumarios__ano">${esc(a.ano_escolar ?? "")}</span>
+        ${a.sumario_url
+          ? `<a href="${esc(a.sumario_url)}" target="_blank" rel="noopener">${esc(a.nome)}</a>`
+          : `<span>${esc(a.nome)}</span>`}
+        <span class="sumarios__ano">${esc(String(a.ano_escolar ?? "").replace(/\s*ano$/, ""))}</span>
+        ${a.sumario_url || secundario(a) ? "" : `<span class="sumarios__nota">Sem sumário ligado</span>`}
       </li>`).join("")}
-      ${soNomes.map((n) => `<li><span><strong>${esc(n)}</strong><span class="small muted sumarios__nota">Sem ficha associada</span></span></li>`).join("")}
+      ${soNomes.map((n) => `<li><span>${esc(n)}</span><span class="sumarios__nota">Sem ficha associada</span></li>`).join("")}
     </ul>
     ${!lista.length && !soNomes.length ? `<p class="muted">Sem alunos nesta sala.</p>` : ""}
     ${pasta}`;
