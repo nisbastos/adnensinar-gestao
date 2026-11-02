@@ -680,8 +680,7 @@ table.table {
   text-align: center;
 }
 
-.login__logo { justify-content: center; margin-bottom: 6px; text-align: left; }
-.login__card .login__logo .logo-tag { display: block; }
+.login__card img { width: 150px; margin-bottom: 8px; }
 .login__card p { color: var(--c-mid); margin: 4px 0 22px; }
 .login__card form { display: flex; flex-direction: column; gap: 14px; text-align: left; }
 .login__card .btn { justify-content: center; margin-top: 6px; }
