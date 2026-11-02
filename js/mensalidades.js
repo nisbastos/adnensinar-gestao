@@ -97,6 +97,7 @@ const CHAVES = {
   total: (l) => Number(l.total),
   estado: (l) => ORDEM_ESTADOS[estadoVisivel(l)],
   pago: (l) => l.pago_em,
+  fatura: (l) => (l.fatura_emitida ? 1 : 0),
 };
 
 // ---------- Render ----------
@@ -133,8 +134,12 @@ function render() {
   // Tabela
   const q = norm($("search").value);
   const f = $("filter-estado").value;
+  const ff = $("filter-fatura").value;
   const visiveis = ordenar(
-    linhas.filter((l) => (!q || norm(textoAluno(alunoPorId(l.aluno_id))).includes(q)) && (!f || estadoVisivel(l) === f)),
+    linhas.filter((l) =>
+      (!q || norm(textoAluno(alunoPorId(l.aluno_id))).includes(q)) &&
+      (!f || estadoVisivel(l) === f) &&
+      (!ff || (ff === "sim") === !!l.fatura_emitida)),
     estadoOrdem, CHAVES
   );
 
@@ -158,6 +163,8 @@ function render() {
         <td class="num"><strong>${euro(l.total)}</strong></td>
         <td><span class="badge ${BADGE[est]}">${est}</span>${l.estado === "Parcial" ? `<div class="small muted">${euro(l.valor_pago)}</div>` : ""}</td>
         <td class="small">${fmtData(l.pago_em)}${l.metodo ? `<div class="muted">${esc(l.metodo)}</div>` : ""}</td>
+        <td class="col-fatura"><input type="checkbox" class="chk-fatura" data-fatura="${l.id}" ${l.fatura_emitida ? "checked" : ""}
+              title="${l.fatura_emitida ? "Fatura passada" : "Fatura por passar"}" aria-label="Fatura passada" /></td>
         <td>${["Por pagar", "Parcial"].includes(l.estado) ? `<button type="button" class="btn btn--ghost btn--sm" data-pagar="${l.id}">Pago</button>` : ""}</td>
       </tr>`;
   }).join("");
@@ -170,12 +177,13 @@ function render() {
       <td class="num">${soma("duodecimo")}</td>
       <td class="num">${soma("inscricao")}</td>
       <td class="num"><strong>${soma("total")}</strong></td>
-      <td colspan="3"></td>
+      <td colspan="4"></td>
     </tr>` : "";
 }
 
 $("search").addEventListener("input", render);
 $("filter-estado").addEventListener("change", render);
+$("filter-fatura").addEventListener("change", render);
 ligarOrdenacao(document.querySelector("table.table"), $("ordem"), estadoOrdem, render);
 
 // ---------- Gerar mensalidades do mês ----------
@@ -218,17 +226,59 @@ $("gerar").addEventListener("click", async () => {
 
 // ---------- Marcar como pago (rápido) ----------
 
-$("lista").addEventListener("click", async (e) => {
+// Pede sempre o método; a data de pagamento é a de hoje.
+const modalPagar = $("modal-pagar");
+const formPagar = $("form-pagar");
+wireModal(modalPagar);
+let pagarId = null;
+
+function abrirPagar(l) {
+  pagarId = l.id;
+  formPagar.reset();
+  const a = alunoPorId(l.aluno_id);
+  $("pagar-resumo").innerHTML =
+    `<strong>${esc(a ? nomeAluno(a) : "Mensalidade")}</strong> · ${esc(nomeMes(l.mes))}<br>` +
+    `${euro(l.total)} · pago hoje, ${new Date().toLocaleDateString("pt-PT")}`;
+  $("pagar-fatura").checked = !!l.fatura_emitida;
+  $("pagar-ok").disabled = true;
+  modalPagar.showModal();
+}
+
+$("pagar-metodos").addEventListener("change", () => { $("pagar-ok").disabled = false; });
+
+formPagar.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const metodo = formPagar.querySelector('input[name="metodo"]:checked')?.value;
+  if (!metodo) return toast("Escolhe o método de pagamento.", true);
+  $("pagar-ok").disabled = true;
+  const { error } = await sb.from("mensalidades")
+    .update({ estado: "Pago", pago_em: isoLocal(new Date()), valor_pago: null, metodo, fatura_emitida: $("pagar-fatura").checked })
+    .eq("id", pagarId);
+  if (failed(error, "Não foi possível marcar como pago")) { $("pagar-ok").disabled = false; return; }
+  modalPagar.close();
+  toast(`Marcada como paga (${metodo}).`);
+  carregar();
+});
+
+$("lista").addEventListener("change", async (e) => {
+  const c = e.target.closest("[data-fatura]");
+  if (!c) return;
+  c.disabled = true;
+  const { error } = await sb.from("mensalidades").update({ fatura_emitida: c.checked }).eq("id", c.dataset.fatura);
+  c.disabled = false;
+  if (failed(error, "Não foi possível guardar a fatura")) { c.checked = !c.checked; return; }
+  const l = linhas.find((x) => x.id === c.dataset.fatura);
+  if (l) l.fatura_emitida = c.checked;
+  c.title = c.checked ? "Fatura passada" : "Fatura por passar";
+  toast(c.checked ? "Fatura marcada como passada." : "Fatura marcada como por passar.");
+});
+
+$("lista").addEventListener("click", (e) => {
+  if (e.target.closest("[data-fatura]")) return e.stopPropagation(); // só a caixa, não abre a ficha
   const b = e.target.closest("[data-pagar]");
   if (b) {
     e.stopPropagation();
-    b.disabled = true;
-    const { error } = await sb.from("mensalidades")
-      .update({ estado: "Pago", pago_em: isoLocal(new Date()), valor_pago: null })
-      .eq("id", b.dataset.pagar);
-    if (failed(error, "Não foi possível marcar como pago")) { b.disabled = false; return; }
-    toast("Marcada como paga.");
-    return carregar();
+    return abrirPagar(linhas.find((l) => l.id === b.dataset.pagar));
   }
   const tr = e.target.closest("tr[data-id]");
   if (tr) abrir(linhas.find((l) => l.id === tr.dataset.id));
@@ -264,6 +314,10 @@ form.addEventListener("submit", async (e) => {
   for (const k of ["mensalidade", "duodecimo", "inscricao"]) d[k] = cent(d[k] ?? 0);
   d.valor_pago = d.estado === "Parcial" && d.valor_pago != null ? cent(d.valor_pago) : null;
   if (d.estado === "Por pagar" || d.estado === "Isento") { d.pago_em = null; d.metodo = null; }
+  if (["Pago", "Parcial"].includes(d.estado)) {
+    if (!d.metodo) { $("f-metodo").focus(); return toast("Escolhe o método de pagamento.", true); }
+    if (!d.pago_em) d.pago_em = isoLocal(new Date());
+  }
 
   $("guardar").disabled = true;
   const { error } = await sb.from("mensalidades").update(d).eq("id", editId);

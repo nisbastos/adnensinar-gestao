@@ -438,6 +438,23 @@ table.table {
 }
 
 .modal--wide { width: min(760px, calc(100vw - 24px)); }
+.modal--sm { width: min(440px, calc(100vw - 24px)); }
+
+/* Método de pagamento (popup "Pago") */
+.metodos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.metodos label { position: relative; cursor: pointer; }
+.metodos input { position: absolute; opacity: 0; pointer-events: none; }
+.metodos span {
+  display: block; text-align: center; padding: 10px 8px; border-radius: 10px;
+  border: 1px solid var(--c-line); background: #fff; font-weight: 500;
+}
+.metodos label:hover span { border-color: var(--c-brand-2-dark); }
+.metodos input:checked + span { background: var(--c-brand-1); border-color: var(--c-brand-1); color: var(--c-dark-2); }
+.metodos input:focus-visible + span { outline: 2px solid var(--c-brand-2-dark); outline-offset: 2px; }
+
+/* Coluna Fatura (mensalidades) */
+.col-fatura { text-align: center; width: 64px; }
+.chk-fatura { width: 18px; height: 18px; cursor: pointer; accent-color: var(--c-brand-2-dark); }
 
 .form-section {
   font-size: 18px;
@@ -693,6 +710,13 @@ table.table {
 
 .schedule__dayhead { border-left: 2px solid #d5dcdc; border-bottom: 0; padding-bottom: 4px; }
 
+/* Cabeçalho (dia + sala) acompanha a página ao descer — o deslocamento é feito em horario.js (--fixo). */
+.schedule__corner, .schedule__dayhead, .schedule__roomhead { position: relative; z-index: 5; transform: translateY(var(--fixo, 0px)); }
+.schedule__corner { position: sticky; left: 0; z-index: 6; }
+.schedule.is-fixo .schedule__roomhead { box-shadow: 0 6px 8px -6px rgba(0, 0, 0, .12); }
+/* Coluna das horas fica visível ao deslizar para o lado. */
+.schedule__times { position: sticky !important; left: 0; z-index: 4; background: #fff; }
+
 .schedule__roomhead {
   background: #fff;
   border-bottom: 1px solid var(--c-line);
@@ -838,7 +862,8 @@ table.table {
   .print-title p { margin: 0; color: var(--c-mid); font-size: 11px; text-align: right; }
 
   .card { box-shadow: none; border: 1px solid var(--c-line); border-radius: 10px; }
-  .schedule-wrap { overflow: hidden; }
+  .schedule-wrap { overflow: hidden; max-height: none; }
+  .schedule__dayhead, .schedule__roomhead, .schedule__times, .schedule__corner { position: static !important; transform: none !important; box-shadow: none !important; }
   .schedule { width: 100%; }
   .schedule { grid-template-columns: 40px repeat(var(--cols), 1fr) !important; }
   .schedule [data-day] { display: block !important; }

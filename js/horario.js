@@ -255,7 +255,28 @@ function render() {
   }
   el.innerHTML = html;
   renderTabs();
+  fixarCabecalho();
 }
+
+// ---------- Cabeçalho fixo ----------
+// O horário desliza para o lado dentro do cartão (overflow-x), o que impede o position:sticky
+// vertical; por isso o cabeçalho (dia + sala) é deslocado aqui para ficar logo abaixo do menu.
+let pedidoFixo = 0;
+function fixarCabecalho() {
+  pedidoFixo = 0;
+  const el = $("schedule");
+  const cab = el.querySelector(".schedule__roomhead");
+  if (!cab || aImprimir) { el.style.removeProperty("--fixo"); el.classList.remove("is-fixo"); return; }
+  const topoMenu = document.querySelector(".site-header")?.getBoundingClientRect().bottom ?? 0;
+  const caixa = el.getBoundingClientRect();
+  const altCab = cab.getBoundingClientRect().bottom - (el.querySelector(".schedule__dayhead")?.getBoundingClientRect().top ?? caixa.top);
+  const desl = Math.max(0, Math.min(topoMenu - caixa.top, caixa.height - altCab - 40));
+  el.style.setProperty("--fixo", `${desl}px`);
+  el.classList.toggle("is-fixo", desl > 0);
+}
+const pedirFixo = () => { if (!pedidoFixo) pedidoFixo = requestAnimationFrame(fixarCabecalho); };
+window.addEventListener("scroll", pedirFixo, { passive: true });
+window.addEventListener("resize", pedirFixo);
 
 function renderTabs() {
   $("day-tabs").innerHTML = DIAS_VISIVEIS.map(

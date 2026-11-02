@@ -103,12 +103,12 @@
       return [
         String(m.mes).slice(0, 7), a ? nomeAluno(a) : "(apagado)", a ? a.nome : "",
         num(m.mensalidade), num(m.duodecimo), num(m.inscricao), num(m.total),
-        m.estado, num(m.valor_pago), data(m.pago_em), txt(m.metodo), txt(m.notas),
+        m.estado, num(m.valor_pago), data(m.pago_em), txt(m.metodo), m.fatura_emitida ? "Sim" : "Não", txt(m.notas),
       ];
     });
     folhas.push({ nome: "Mensalidades", linhas: [[
       "Mês", "Aluno", "Nome completo", "Mensalidade (€)", "Duodécimo (€)", "Inscrição (€)", "Total (€)",
-      "Estado", "Valor pago (€)", "Pago em", "Método", "Notas",
+      "Estado", "Valor pago (€)", "Pago em", "Método", "Fatura", "Notas",
     ]].concat(linhasMens) });
 
     // ---- Horário
