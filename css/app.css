@@ -600,6 +600,7 @@ table.table {
 .sumarios { list-style: none; margin: 0; padding: 0; columns: 2 260px; column-gap: 24px; }
 .sumarios li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--c-line); break-inside: avoid; }
 .sumarios a { color: var(--c-brand-2-dark); text-decoration: underline; text-underline-offset: 2px; }
+#sum-salas { flex-wrap: wrap; border-radius: 16px; max-width: 100%; }
 .sumarios__nota { display: block; }
 .sumarios__ano { flex-shrink: 0; font-size: 13px; color: var(--c-mid); white-space: nowrap; }
 .painel .sumarios__pasta { margin-top: 12px; }
