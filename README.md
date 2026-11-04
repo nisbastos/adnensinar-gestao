@@ -46,11 +46,12 @@ Acesso só com login.
 | `supabase/013_fatura.sql` | Coluna "Fatura passada" nas mensalidades — correr 13.º |
 | `supabase/014_duodecimo_valor.sql` | Duodécimo com valor especial por aluno — correr 14.º |
 | `supabase/015_sumarios.sql` | Link do ficheiro de sumários de cada aluno — correr 15.º |
+| `supabase/016_remetente_questao_aula.sql` | Remetente das transferências e tipo "Questão de Aula" — correr 16.º |
 | `supabase/011_calendario.sql` | Calendário de testes/entregas; mensalidades só para Admin — correr 11.º |
 | `supabase/010_utilizadores_perfis.sql` | Contas e perfis (Admin / Gestão) com regras na base de dados — correr 10.º |
 
 ## Primeira configuração
 
-1. Supabase → SQL Editor → correr `supabase/schema.sql` depois `002_inscricao_salas.sql`, `003_tipo_salas.sql`, `004_disciplinas.sql`, `005_professores_disciplinas.sql` `006_reduzir_disciplinas.sql`, `007_mensalidades_registo.sql`, `008_nome_comum.sql`, `009_mensalidade_por_aluno.sql` `010_utilizadores_perfis.sql` `011_calendario.sql`, `012_envios_email.sql`, `013_fatura.sql`, `014_duodecimo_valor.sql` e `015_sumarios.sql`.
+1. Supabase → SQL Editor → correr `supabase/schema.sql` depois `002_inscricao_salas.sql`, `003_tipo_salas.sql`, `004_disciplinas.sql`, `005_professores_disciplinas.sql` `006_reduzir_disciplinas.sql`, `007_mensalidades_registo.sql`, `008_nome_comum.sql`, `009_mensalidade_por_aluno.sql` `010_utilizadores_perfis.sql` `011_calendario.sql`, `012_envios_email.sql`, `013_fatura.sql`, `014_duodecimo_valor.sql`, `015_sumarios.sql` e `016_remetente_questao_aula.sql`.
 2. GitHub → Settings → Pages → Source: *Deploy from a branch* → `main` / `(root)`.
 3. Abrir o endereço do Pages e entrar com o utilizador criado no Supabase.

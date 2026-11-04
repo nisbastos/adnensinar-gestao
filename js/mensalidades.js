@@ -91,6 +91,7 @@ const ORDEM_ESTADOS = { "Em atraso": 0, "Por pagar": 1, Parcial: 2, Pago: 3, Ise
 const CHAVES = {
   aluno: (l) => nomeAluno(alunoPorId(l.aluno_id)),
   plano: (l) => descPlano(l.aluno_id),
+  remetente: (l) => alunoPorId(l.aluno_id)?.remetente_transferencia || null,
   mensalidade: (l) => Number(l.mensalidade),
   duodecimo: (l) => Number(l.duodecimo),
   inscricao: (l) => Number(l.inscricao),
@@ -137,7 +138,7 @@ function render() {
   const ff = $("filter-fatura").value;
   const visiveis = ordenar(
     linhas.filter((l) =>
-      (!q || norm(textoAluno(alunoPorId(l.aluno_id))).includes(q)) &&
+      (!q || norm(textoAluno(alunoPorId(l.aluno_id)) + " " + (alunoPorId(l.aluno_id)?.remetente_transferencia ?? "")).includes(q)) &&
       (!f || estadoVisivel(l) === f) &&
       (!ff || (ff === "sim") === !!l.fatura_emitida)),
     estadoOrdem, CHAVES
@@ -156,6 +157,9 @@ function render() {
     return `
       <tr data-id="${l.id}">
         <td class="col-nome"><strong>${esc(a ? nomeAluno(a) : "(aluno apagado)")}</strong>${a && !a.ativo ? ' <span class="badge badge--off">Inativo</span>' : ""}</td>
+        <td class="small col-rem">${a && temRemetente()
+          ? `<button type="button" class="rem-btn ${a.remetente_transferencia ? "" : "is-vazio"}" data-rem="${a.id}" title="Clica para editar">${esc(a.remetente_transferencia || "+ adicionar")}</button>`
+          : vazio}</td>
         <td class="small">${esc(descPlano(l.aluno_id)) || vazio}</td>
         <td class="num">${euro(l.mensalidade)}</td>
         <td class="num">${euro(l.duodecimo)}</td>
@@ -172,7 +176,7 @@ function render() {
   const soma = (k) => euro(visiveis.reduce((t, l) => t + Number(l[k]), 0));
   $("totais").innerHTML = visiveis.length ? `
     <tr>
-      <td colspan="2"><strong>Total</strong> <span class="muted small">(${visiveis.length})</span></td>
+      <td colspan="3"><strong>Total</strong> <span class="muted small">(${visiveis.length})</span></td>
       <td class="num">${soma("mensalidade")}</td>
       <td class="num">${soma("duodecimo")}</td>
       <td class="num">${soma("inscricao")}</td>
@@ -240,11 +244,17 @@ function abrirPagar(l) {
     `<strong>${esc(a ? nomeAluno(a) : "Mensalidade")}</strong> · ${esc(nomeMes(l.mes))}<br>` +
     `${euro(l.total)} · pago hoje, ${new Date().toLocaleDateString("pt-PT")}`;
   $("pagar-fatura").checked = !!l.fatura_emitida;
+  $("pagar-rem").value = a?.remetente_transferencia ?? "";
+  $("pagar-rem-campo").hidden = true;
   $("pagar-ok").disabled = true;
   modalPagar.showModal();
 }
 
-$("pagar-metodos").addEventListener("change", () => { $("pagar-ok").disabled = false; });
+$("pagar-metodos").addEventListener("change", () => {
+  $("pagar-ok").disabled = false;
+  const metodo = formPagar.querySelector('input[name="metodo"]:checked')?.value;
+  $("pagar-rem-campo").hidden = metodo !== "Transferência" || !temRemetente();
+});
 
 formPagar.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -259,6 +269,10 @@ formPagar.addEventListener("submit", async (e) => {
     })
     .eq("id", pagarId);
   if (failed(error, "Não foi possível marcar como pago")) { $("pagar-ok").disabled = false; return; }
+  if (metodo === "Transferência" && temRemetente()) {
+    const l = linhas.find((x) => x.id === pagarId);
+    await guardarRemetente(l?.aluno_id, $("pagar-rem").value);
+  }
   modalPagar.close();
   toast(`Marcada como paga (${metodo}).`);
   carregar();
@@ -277,8 +291,50 @@ $("lista").addEventListener("change", async (e) => {
   toast(c.checked ? "Fatura marcada como passada." : "Fatura marcada como por passar.");
 });
 
+// ---------- Remetente das transferências (guardado na ficha do aluno) ----------
+
+/** A coluna só existe depois da migração 016. */
+const temRemetente = () => alunos.some((a) => "remetente_transferencia" in a);
+
+async function guardarRemetente(alunoId, valor) {
+  const a = alunoPorId(alunoId);
+  if (!a) return true;
+  const novo = String(valor ?? "").replace(/\s+/g, " ").trim() || null;
+  if (novo === (a.remetente_transferencia ?? null)) return true;
+  const { error } = await sb.from("alunos").update({ remetente_transferencia: novo }).eq("id", alunoId);
+  if (failed(error, "Não foi possível guardar o remetente")) return false;
+  a.remetente_transferencia = novo;
+  return true;
+}
+
+function editarRemetente(btn) {
+  const a = alunoPorId(btn.dataset.rem);
+  const input = document.createElement("input");
+  input.className = "input input--sm";
+  input.value = a?.remetente_transferencia ?? "";
+  input.placeholder = "Nome como aparece no banco";
+  btn.replaceWith(input);
+  input.focus();
+  let feito = false;
+  const fim = async (guardar) => {
+    if (feito) return;
+    feito = true;
+    if (guardar && await guardarRemetente(a.id, input.value)) toast("Remetente guardado.");
+    render();
+  };
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") { ev.preventDefault(); fim(true); }
+    if (ev.key === "Escape") { ev.preventDefault(); fim(false); }
+  });
+  input.addEventListener("blur", () => fim(true));
+  input.addEventListener("click", (ev) => ev.stopPropagation());
+}
+
 $("lista").addEventListener("click", (e) => {
   if (e.target.closest("[data-fatura]")) return e.stopPropagation(); // só a caixa, não abre a ficha
+  const rb = e.target.closest("[data-rem]");
+  if (rb) { e.stopPropagation(); return editarRemetente(rb); }
+  if (e.target.closest(".col-rem input")) return;
   const b = e.target.closest("[data-pagar]");
   if (b) {
     e.stopPropagation();

@@ -457,6 +457,13 @@ table.table {
 
 /* Coluna Fatura (mensalidades) */
 .col-fatura { text-align: center; width: 64px; }
+
+/* Remetente da transferência (mensalidades) */
+.col-rem { min-width: 150px; }
+.rem-btn { border: 0; background: none; padding: 2px 0; font: inherit; color: var(--c-dark); text-align: left; cursor: text; border-bottom: 1px dashed transparent; }
+.rem-btn:hover { border-bottom-color: var(--c-mid); }
+.rem-btn.is-vazio { color: var(--c-mid); }
+.input--sm { padding: 6px 8px; font-size: 13px; min-width: 150px; }
 .chk-fatura { width: 18px; height: 18px; cursor: pointer; accent-color: var(--c-brand-2-dark); }
 
 .form-section {

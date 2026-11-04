@@ -37,7 +37,7 @@
 
     <div class="toolbar toolbar--spread">
       <div class="toolbar">
-        <input class="input search" id="search" type="search" placeholder="Pesquisar aluno…" />
+        <input class="input search" id="search" type="search" placeholder="Pesquisar aluno ou remetente…" />
         <select class="select" id="filter-estado" aria-label="Estado">
           <option value="">Todos os estados</option>
           <option value="Por pagar">Por pagar</option>
@@ -69,6 +69,7 @@
         <thead>
           <tr>
             <th data-sort="aluno">Aluno</th>
+            <th data-sort="remetente" title="Nome de quem faz a transferência (como aparece no banco)">Remetente</th>
             <th data-sort="plano">Plano</th>
             <th data-sort="mensalidade" data-dir="desc" class="num">Mensalidade</th>
             <th data-sort="duodecimo" data-dir="desc" class="num">Duodécimo</th>
@@ -174,6 +175,11 @@
           <label><input type="radio" name="metodo" value="Numerário" /> <span>Numerário</span></label>
           <label><input type="radio" name="metodo" value="Multibanco" /> <span>Multibanco</span></label>
           <label><input type="radio" name="metodo" value="Outro" /> <span>Outro</span></label>
+        </div>
+        <div class="field" id="pagar-rem-campo" hidden style="margin-top:14px">
+          <label for="pagar-rem">Remetente da transferência</label>
+          <input class="input" id="pagar-rem" placeholder="Nome como aparece no banco" />
+          <span class="small muted">Fica guardado na ficha do aluno para os próximos meses.</span>
         </div>
         <label class="check" style="margin-top:14px"><input type="checkbox" id="pagar-fatura" /> Fatura já passada</label>
       </div>

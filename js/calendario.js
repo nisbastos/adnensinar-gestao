@@ -10,9 +10,9 @@ const modal = $("modal");
 const form = $("form");
 wireModal(modal);
 
-export const TIPOS = ["Teste", "Ficha", "Trabalho", "Apresentação", "Entrega", "Oral", "Outro"];
+export const TIPOS = ["Teste", "Questão de Aula", "Ficha", "Trabalho", "Apresentação", "Entrega", "Oral", "Outro"];
 const COR = {
-  Teste: "#fbd1c1", Ficha: "#ffe7a9", Trabalho: "#cee3d1", "Apresentação": "#d9d2ec",
+  Teste: "#fbd1c1", "Questão de Aula": "#f7c6d3", Ficha: "#ffe7a9", Trabalho: "#cee3d1", "Apresentação": "#d9d2ec",
   Entrega: "#d6e4f5", Oral: "#c1dbdc", Outro: "#e6e6e6",
 };
 const DIAS_SEMANA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
