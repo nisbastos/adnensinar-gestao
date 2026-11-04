@@ -288,13 +288,31 @@ function renderTestes(agora) {
     const k = e.aplica_turma && chaveTurma(a);
     return k ? ativos.filter((x) => chaveTurma(x) === k) : [a];
   };
-  $("testes").innerHTML = `<ul class="lista-simples">${lista.map((e) => {
-    const [y, m, d] = e.data.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    const diff = Math.round((dt - new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())) / 86400000);
+  // Agrupa por dia + disciplina: vários alunos com teste à mesma disciplina no mesmo dia ficam numa só linha.
+  const grupos = new Map();
+  for (const e of lista) {
+    const k = `${e.data}|${e.disciplina_id ?? "tipo:" + e.tipo}`;
+    if (!grupos.has(k)) grupos.set(k, { data: e.data, disciplina_id: e.disciplina_id, tipos: new Set(), alunos: new Map() });
+    const g = grupos.get(k);
+    g.tipos.add(e.tipo);
+    for (const a of abr(e)) g.alunos.set(a.id, a);
+  }
+  const anoCurto = (a) => {
+    const n = String(a.ano_escolar ?? a.ano_turma ?? "").match(/\d{1,2}/)?.[0];
+    return n ? `${n}.º` : "";
+  };
+  const hoje0 = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  $("testes").innerHTML = `<ul class="lista-simples">${[...grupos.values()].map((g) => {
+    const [y, m, d] = g.data.split("-").map(Number);
+    const diff = Math.round((new Date(y, m - 1, d) - hoje0) / 86400000);
     const quando = diff === 0 ? "Hoje" : diff === 1 ? "Amanhã" : `${d}/${m}`;
-    return `<li><span><strong>${esc(discPorId(e.disciplina_id)?.nome ?? e.tipo)}</strong> <span class="muted small">${esc(e.tipo)}</span><br>
-      <span class="small">${abr(e).map((a) => esc(nomeAluno(a))).join(", ")}</span></span>
+    const tipos = [...g.tipos];
+    const titulo = discPorId(g.disciplina_id)?.nome ?? tipos[0];
+    const nomes = [...g.alunos.values()]
+      .sort((x, y2) => nomeAluno(x).localeCompare(nomeAluno(y2), "pt"))
+      .map((a) => `${esc(nomeAluno(a))}${anoCurto(a) ? ` <span class="muted">(${anoCurto(a)})</span>` : ""}`);
+    return `<li><span><strong>${esc(titulo)}</strong> <span class="muted small">${tipos.map(esc).join(" · ")}</span><br>
+      <span class="small">${nomes.join(", ")}</span></span>
       <span class="badge ${diff <= 1 ? "badge--pink" : ""}">${quando}</span></li>`;
   }).join("")}</ul>`;
 }
