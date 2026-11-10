@@ -350,6 +350,8 @@ form.addEventListener("submit", async (e) => {
       ? null : cent(dados.duodecimo_valor);
   }
   if (!alunos.some((x) => "sumario_url" in x)) delete dados.sumario_url; // migração 015 por correr
+  if (!alunos.some((x) => "autoriza_saude" in x)) delete dados.autoriza_saude; // migração 018
+
   if (!perfil.financas || !alunos.some((x) => "remetente_transferencia" in x)) delete dados.remetente_transferencia; // migração 016
 
   $("guardar").disabled = true;

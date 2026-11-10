@@ -505,6 +505,8 @@ export function camposEmFalta(a, planos) {
   if (vazio(a.encarregado_telefone)) falta.push("Telemóvel do EE");
   if (vazio(a.encarregado_email)) falta.push("Email do EE");
   if (planos != null && !planos) falta.push("Mensalidade");
+  // Informação de saúde sem autorização do EE registada (inscrições antigas ou preenchidas à mão).
+  if (!vazio(a.saude) && a.saude !== "Não" && "autoriza_saude" in a && a.autoriza_saude !== true) falta.push("Autorização de saúde");
   return falta;
 }
 

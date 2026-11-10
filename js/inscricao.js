@@ -236,6 +236,7 @@
     ["escola", "escola"],
     ["ano de escolaridade", "ano_turma"],
     ["em que disciplinas", "dificuldades"],
+    ["autorizo o tratamento das informacoes de saude", "autoriza_saude", simNao],
     ["o seu educando tem alguma condicao", "saude"],
     ["como conheceu", "como_conheceu"],
     ["nome completo do encarregado", "encarregado_nome"],
@@ -270,6 +271,8 @@
       a[m[1]] = m[2] ? m[2](v) : v; // datas (Date) e números são tratados em uniformizar()
     });
     if (!a.nome) return null;
+    // Sem autorização do EE, a informação de saúde não é guardada (RGPD, art. 9.º).
+    if (a.autoriza_saude === false) a.saude = null;
     return uniformizar(a);
   }
 
